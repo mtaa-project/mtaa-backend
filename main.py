@@ -1,5 +1,7 @@
 def main():
-    print("Hello from mtaa-backend!")
+    print(
+        "Hello from mtaa-backend!"
+    )
 
 
 if __name__ == "__main__":
