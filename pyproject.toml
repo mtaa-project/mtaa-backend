@@ -7,3 +7,18 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.115.8",
 ]
+
+[dependency-groups]
+dev = ["black", "pre-commit"]
+
+[tool.black]
+line-length = 33
+target-version = ['py310', 'py311', 'py313']
+exclude = '''
+/(
+    .venv
+  | env
+  | migrations
+  | .*\.pyc
+)/
+'''
