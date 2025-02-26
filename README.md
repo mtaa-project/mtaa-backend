@@ -1,4 +1,4 @@
-# mtaa-backend
+# MTAA Project - Backend
 
 ## Requirements
 - [uv](https://docs.astral.sh/uv/) for Python package and environment management.
