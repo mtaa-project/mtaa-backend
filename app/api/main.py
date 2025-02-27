@@ -2,14 +2,23 @@ from fastapi import (
     FastAPI,
 )
 from app.api.routes import products
-from app.db.database import create_db_and_tables
+from app.core import config
+from app.db.database import init_db
+from contextlib import asynccontextmanager
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.include_router(products.router)
 
 
-@app.on_event("startup")
-def on_startup():
-    create_db_and_tables()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
