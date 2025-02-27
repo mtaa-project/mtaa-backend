@@ -17,3 +17,8 @@ Then you can activate the virtual environment with:
 ```bash
 $ source .venv/bin/activate
 ```
+Run project with:
+
+```bash
+fastapi dev app/api/main.py
+```
