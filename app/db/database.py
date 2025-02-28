@@ -1,10 +1,11 @@
-from sqlalchemy.ext.asyncio import create_async_engine
-
-from sqlmodel import SQLModel
-from app.core import config
 from sqlalchemy.engine import URL
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.orm import sessionmaker
+from sqlmodel import SQLModel
 
+from app.core import config
 
+# this constructs a connection string to our database
 db_url = URL.create(
     drivername="postgresql+asyncpg",
     username=config.config.db_user,
@@ -14,8 +15,22 @@ db_url = URL.create(
     database=config.config.db_name,
 )
 
-
+# configuration for asynchronous connection to database
+# it handles connection pooling and creating connections
+# Engine does not work directly with a database it requires a session
+# (sessionmaker)
 engine = create_async_engine(db_url, echo=True, future=True)
+
+# factory for creating a new connections
+# it is useful to define unified rules for creating a session
+#
+async_session = sessionmaker(
+    # connection configuration
+    bind=engine,
+    # connection type
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
 
 
 async def init_db():
