@@ -1,10 +1,11 @@
+from contextlib import asynccontextmanager
+
 from fastapi import (
     FastAPI,
 )
+
 from app.api.routes import products
-from app.core import config
 from app.db.database import init_db
-from contextlib import asynccontextmanager
 
 
 @asynccontextmanager

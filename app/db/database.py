@@ -21,14 +21,13 @@ db_url = URL.create(
 # (sessionmaker)
 engine = create_async_engine(db_url, echo=True, future=True)
 
-# factory for creating a new connections
-# it is useful to define unified rules for creating a session
-#
+# factory for creating  asynchronous sessions (AsyncSession)
 async_session = sessionmaker(
     # connection configuration
     bind=engine,
     # connection type
     class_=AsyncSession,
+    # objects remain available after committing a transaction
     expire_on_commit=False,
 )
 
