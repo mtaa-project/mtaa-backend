@@ -23,7 +23,7 @@ engine = create_async_engine(db_url, echo=True, future=True)
 
 # factory for creating  asynchronous sessions (AsyncSession)
 async_session = sessionmaker(
-    # connection configuration
+    # connection configuration0     -
     bind=engine,
     # connection type
     class_=AsyncSession,

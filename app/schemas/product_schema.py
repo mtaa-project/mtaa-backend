@@ -1,3 +1,5 @@
+from datetime import date
+
 from sqlmodel import SQLModel
 
 
@@ -5,6 +7,8 @@ class ProductBase(SQLModel):
     name: str
     secret_name: str | None = None
     description: str
+    date_formed: date | None
+    asd: str
 
 
 class ProductCreate(ProductBase):
