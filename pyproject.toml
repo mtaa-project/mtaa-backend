@@ -5,20 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi[standard]>=0.115.8",
+  "alembic>=1.14.1",
+  "asyncpg>=0.30.0",
+  "fastapi[standard]>=0.115.8",
+  "pydantic-settings>=2.8.1",
+  "python-dotenv>=1.0.1",
+  "sqlmodel>=0.0.22",
 ]
 
 [dependency-groups]
-dev = ["black", "pre-commit"]
-
-[tool.black]
-line-length = 90
-target-version = ['py310', 'py311', 'py313']
-exclude = '''
-/(
-    .venv
-  | env
-  | migrations
-  | .*\.pyc
-)/
-'''
+dev = [
+ "pre-commit",
+ "ruff>=0.9.8",
+]
