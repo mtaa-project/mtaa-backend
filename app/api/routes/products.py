@@ -33,8 +33,8 @@ async def read_products(
     limit: int = Query(default=100, le=100),
 ):
     query = select(Product).offset(offset).limit(limit)
-    db_products = await session.exec(query)
-    db_products = db_products.all()
+    db_products = await session.execute(query)
+    db_products = db_products.scalars().all()
 
     return db_products
 
