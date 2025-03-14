@@ -1,8 +1,8 @@
 """generate user tables
 
-Revision ID: 8bd41f713164
+Revision ID: e15e97c8608f
 Revises: cf2800f34453
-Create Date: 2025-03-15 00:35:32.259304
+Create Date: 2025-03-15 00:49:30.103255
 
 """
 
@@ -15,7 +15,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = "8bd41f713164"
+revision: str = "e15e97c8608f"
 down_revision: Union[str, None] = "cf2800f34453"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -48,8 +48,8 @@ def upgrade() -> None:
         sa.Column("rating", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.Column("reviewer_id", sa.Integer(), nullable=True),
-        sa.Column("reviewee_id", sa.Integer(), nullable=True),
+        sa.Column("reviewer_id", sa.Integer(), nullable=False),
+        sa.Column("reviewee_id", sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(
             ["reviewee_id"],
             ["users.id"],

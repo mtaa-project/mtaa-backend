@@ -19,8 +19,8 @@ class UserReview(SQLModel, table=True):
     updated_at: Optional[datetime] = None
 
     # Foreign keys
-    reviewer_id: int | None = Field(default=None, foreign_key="users.id")
-    reviewee_id: int | None = Field(default=None, foreign_key="users.id")
+    reviewer_id: int = Field(foreign_key="users.id", nullable=False)
+    reviewee_id: int = Field(foreign_key="users.id", nullable=False)
 
     # Relationships
     reviewer: Optional["User"] = Relationship(
