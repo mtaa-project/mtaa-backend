@@ -1,8 +1,8 @@
 """generate user tables
 
-Revision ID: e15e97c8608f
+Revision ID: 24b294c61d23
 Revises: cf2800f34453
-Create Date: 2025-03-15 00:49:30.103255
+Create Date: 2025-03-15 12:25:32.674808
 
 """
 
@@ -15,7 +15,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = "e15e97c8608f"
+revision: str = "24b294c61d23"
 down_revision: Union[str, None] = "cf2800f34453"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -63,6 +63,7 @@ def upgrade() -> None:
     op.create_table(
         "userSearchAlerts",
         sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("product_filters", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
         sa.Column("user_id", sa.Integer(), nullable=False),
