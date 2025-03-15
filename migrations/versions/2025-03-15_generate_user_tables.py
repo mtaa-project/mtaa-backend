@@ -1,8 +1,8 @@
 """generate user tables
 
-Revision ID: 24b294c61d23
+Revision ID: 1fcb29140b7c
 Revises: cf2800f34453
-Create Date: 2025-03-15 12:25:32.674808
+Create Date: 2025-03-15 12:28:44.642006
 
 """
 
@@ -15,7 +15,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = "24b294c61d23"
+revision: str = "1fcb29140b7c"
 down_revision: Union[str, None] = "cf2800f34453"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

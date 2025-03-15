@@ -1,9 +1,7 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from pydantic import Json
-from sqlalchemy import JSON, Column
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column
 from sqlmodel import JSON, Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
