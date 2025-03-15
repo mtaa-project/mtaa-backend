@@ -22,4 +22,4 @@ class UserSearchAlert(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id")
 
     # Relationships
-    user: Optional["User"] = Relationship(back_populates="search_alerts")
+    alerts: "User" = Relationship(back_populates="search_alerts")
