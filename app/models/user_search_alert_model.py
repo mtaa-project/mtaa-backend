@@ -13,9 +13,7 @@ class UserSearchAlert(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True)
 
-    product_filters: Dict[str, Any] = Field(
-        sa_column=Column(JSON, nullable=False), default_factory=dict
-    )
+    product_filters: Dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: Optional[datetime]
