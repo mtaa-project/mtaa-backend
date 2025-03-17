@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 
 from pydantic_extra_types.country import CountryAlpha2
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .user_model import User
@@ -22,5 +22,4 @@ class Address(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id")
 
     # Relationships
-    # user has at least one address but can have multiple addresses
-    # addresses: "User" = Relationship(back_populates="user")
+    users: "User" = Relationship(back_populates="addresses")
