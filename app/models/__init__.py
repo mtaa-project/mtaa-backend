@@ -1,6 +1,7 @@
 from .address_model import Address
 from .category_listing_model import CategoryListing
 from .category_model import Category
+from .favorite_listing_model import FavoriteListing
 from .listing_model import Listing
 from .product_model import Product
 from .user_model import User
