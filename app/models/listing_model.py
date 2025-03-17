@@ -14,7 +14,7 @@ class Listing(SQLModel, table=True):
     __tablename__ = "listings"
 
     id: int = Field(default=None, primary_key=True)
-    title: str = Field(max_length=255)
+    title: str = Field(max_length=255, unique=True)
     description: str = Field(max_length=255)
     price: Decimal = Field(max_digits=10, decimal_places=2)
     listing_status: ListingStatus = Field(default=ListingStatus.ACTIVE)
