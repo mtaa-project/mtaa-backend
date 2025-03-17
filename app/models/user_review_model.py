@@ -23,11 +23,11 @@ class UserReview(SQLModel, table=True):
     reviewee_id: int = Field(foreign_key="users.id", nullable=False)
 
     # Relationships
-    reviewer: Optional["User"] = Relationship(
+    reviewer: "User" | None = Relationship(
         back_populates="reviews_written",
         sa_relationship_kwargs={"primaryjoin": "UserReview.reviewer_id == User.id"},
     )
-    reviewee: Optional["User"] = Relationship(
+    reviewee: "User" | None = Relationship(
         back_populates="reviews_received",
         sa_relationship_kwargs={"primaryjoin": "UserReview.reviewee_id == User.id"},
     )

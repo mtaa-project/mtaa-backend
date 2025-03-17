@@ -22,12 +22,16 @@ class User(SQLModel, table=True):
     reviews_written: List["UserReview"] = Relationship(
         back_populates="reviewer",
         sa_relationship_kwargs={"foreign_keys": "[UserReview.reviewer_id]"},
+        default_factory=list,
     )
     reviews_received: List["UserReview"] = Relationship(
         back_populates="reviewee",
         sa_relationship_kwargs={"foreign_keys": "[UserReview.reviewee_id]"},
+        default_factory=list,
     )
 
     search_alerts: List["UserSearchAlert"] = Relationship(
-        back_populates="alerts", cascade_delete=True
+        back_populates="alerts",
+        cascade_delete=True,
+        default_factory=list,
     )
