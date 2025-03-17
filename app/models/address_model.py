@@ -12,13 +12,11 @@ class Address(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True)
     is_primary: bool = Field(default=False)  # True = primary, False = secondary
-    country: CountryAlpha2 = Field(max_length=2)
-    city: str = Field(max_length=255)
-    zip_code: str = Field(max_length=255)
-    street: str = Field(max_length=255)
-    visibility: bool = Field(
-        default=True
-    )  # True = visible, False = hidden / TODO: check with the team
+    visibility: bool = Field(default=True)  # True = visible, False = hidden
+    country: CountryAlpha2 | None = Field(max_length=2)
+    city: str | None = Field(max_length=255)
+    zip_code: str | None = Field(max_length=255)
+    street: str | None = Field(max_length=255)
 
     # Foreign keys
     user_id: int = Field(foreign_key="users.id")
