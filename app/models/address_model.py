@@ -4,6 +4,7 @@ from pydantic_extra_types.country import CountryAlpha2
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from .listing_model import Listing
     from .user_model import User
 
 
@@ -23,4 +24,4 @@ class Address(SQLModel, table=True):
 
     # Relationships
     users: "User" = Relationship(back_populates="addresses")
-    # TODO: define relationship between Address and Listing
+    listings: list["Listing"] = Relationship(back_populates="address")

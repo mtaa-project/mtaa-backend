@@ -4,11 +4,14 @@ from typing import TYPE_CHECKING, List
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from .category_listing_model import CategoryListing
 from .enums.listing_status import ListingStatus
 from .enums.offer_type import OfferType
 from .favorite_listing_model import FavoriteListing
 
 if TYPE_CHECKING:
+    from .address_model import Address
+    from .category_model import Category
     from .user_model import User
 
 
@@ -37,4 +40,8 @@ class Listing(SQLModel, table=True):
     )
 
     # TODO: define relationship between Listing and Address
+    address: "Address" = Relationship(back_populates="listings")
     # TODO: define relationship between Listing and Category (Many-to-Many)
+    categories: List["Category"] = Relationship(
+        back_populates="listings", link_model=CategoryListing
+    )
