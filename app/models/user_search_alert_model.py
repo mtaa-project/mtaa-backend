@@ -22,4 +22,4 @@ class UserSearchAlert(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id", ondelete="CASCADE")
 
     # Relationships
-    user: "User" | None = Relationship(back_populates="search_alerts")
+    user: Optional["User"] | None = Relationship(back_populates="search_alerts")
