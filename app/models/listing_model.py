@@ -8,6 +8,7 @@ from .category_listing_model import CategoryListing
 from .enums.listing_status import ListingStatus
 from .enums.offer_type import OfferType
 from .favorite_listing_model import FavoriteListing
+from .sale_lisitng_model import SaleListing
 
 if TYPE_CHECKING:
     from .address_model import Address
@@ -30,7 +31,6 @@ class Listing(SQLModel, table=True):
 
     # Foreign keys
     seller_id: int = Field(foreign_key="users.id")
-    buyer_id: int | None = Field(foreign_key="users.id")
     address_id: int | None = Field(foreign_key="addresses.id")
 
     # Relationships
@@ -44,4 +44,8 @@ class Listing(SQLModel, table=True):
     # TODO: define relationship between Listing and Category (Many-to-Many)
     categories: List["Category"] = Relationship(
         back_populates="listings", link_model=CategoryListing
+    )
+
+    buyer: "User" | None = Relationship(
+        back_populates="purchased_listings", link_model=SaleListing
     )

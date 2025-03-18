@@ -1,6 +1,10 @@
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .user_model import User
 
 
 class SaleListing(SQLModel, table=True):
