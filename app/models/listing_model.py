@@ -1,13 +1,15 @@
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING, List
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from .enums.listing_status import ListingStatus
 from .enums.offer_type import OfferType
 
-# if TYPE_CHECKING:
-#     from .user_model import User
+if TYPE_CHECKING:
+    from .favorite_listing_model import FavoriteListing
+    from .user_model import User
 
 
 class Listing(SQLModel, table=True):
@@ -29,5 +31,10 @@ class Listing(SQLModel, table=True):
     address_id: int | None = Field(foreign_key="addresses.id")
 
     # Relationships
-    # user has at least one address but can have multiple addresses
-    # addresses: "User" = Relationship(back_populates="user")
+
+    favorite_by: List["User"] = Relationship(
+        back_populates="favorite_listings", link_model=FavoriteListing
+    )
+
+    # TODO: define relationship between Listing and Address
+    # TODO: define relationship between Listing and Category (Many-to-Many)

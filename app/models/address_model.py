@@ -23,3 +23,4 @@ class Address(SQLModel, table=True):
 
     # Relationships
     users: "User" = Relationship(back_populates="addresses")
+    # TODO: define relationship between Address and Listing

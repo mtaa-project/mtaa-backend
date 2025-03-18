@@ -1,11 +1,14 @@
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List
 
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
+    from listing_model import Listing
+
     from app.models.address_model import Address
 
+    from .favorite_listing_model import FavoriteListing
     from .user_review_model import UserReview
     from .user_search_alert_model import UserSearchAlert
 
@@ -40,4 +43,8 @@ class User(SQLModel, table=True):
 
     addresses: List["Address"] = Relationship(
         back_populates="users",
+    )
+
+    favorite_listings: List["Listing"] = Relationship(
+        back_populates="favorite_by", link_model=FavoriteListing
     )
