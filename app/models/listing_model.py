@@ -6,9 +6,9 @@ from sqlmodel import Field, Relationship, SQLModel
 
 from .enums.listing_status import ListingStatus
 from .enums.offer_type import OfferType
+from .favorite_listing_model import FavoriteListing
 
 if TYPE_CHECKING:
-    from .favorite_listing_model import FavoriteListing
     from .user_model import User
 
 
@@ -32,7 +32,7 @@ class Listing(SQLModel, table=True):
 
     # Relationships
 
-    favorite_by: List["User"] = Relationship(
+    favorite_by: list["User"] = Relationship(
         back_populates="favorite_listings", link_model=FavoriteListing
     )
 
