@@ -19,7 +19,7 @@ class UserSearchAlert(SQLModel, table=True):
     updated_at: Optional[datetime]
 
     # Foreign keys
-    user_id: int = Field(foreign_key="users.id")
+    user_id: int = Field(foreign_key="users.id", ondelete="CASCADE")
 
     # Relationships
-    user: Optional["User"] = Relationship(back_populates="search_alerts")
+    user: Optional["User"] | None = Relationship(back_populates="search_alerts")
