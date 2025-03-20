@@ -4,6 +4,7 @@ from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
 from .favorite_listing_model import FavoriteListing
+from .rent_listing_model import RentListing
 from .sale_lisitng_model import SaleListing
 
 if TYPE_CHECKING:
@@ -51,6 +52,12 @@ class User(SQLModel, table=True):
         back_populates="favorite_by", link_model=FavoriteListing
     )
 
+    posted_listings: list["Listing"] = Relationship(back_populates="seller")
+
     purchased_listings: list["Listing"] = Relationship(
         back_populates="buyer", link_model=SaleListing
+    )
+
+    rented_listings: list["Listing"] = Relationship(
+        back_populates="renters", link_model=RentListing
     )

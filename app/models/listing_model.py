@@ -1,8 +1,10 @@
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
+
+from app.models.rent_listing_model import RentListing
 
 from .category_listing_model import CategoryListing
 from .enums.listing_status import ListingStatus
@@ -34,18 +36,22 @@ class Listing(SQLModel, table=True):
     address_id: int | None = Field(foreign_key="addresses.id")
 
     # Relationships
-
     favorite_by: list["User"] = Relationship(
         back_populates="favorite_listings", link_model=FavoriteListing
     )
 
-    # TODO: define relationship between Listing and Address
     address: "Address" = Relationship(back_populates="listings")
-    # TODO: define relationship between Listing and Category (Many-to-Many)
+
     categories: List["Category"] = Relationship(
         back_populates="listings", link_model=CategoryListing
     )
 
-    buyer: "User" | None = Relationship(
+    seller: Optional["User"] = Relationship(back_populates="posted_listings")
+
+    buyer: Optional["User"] | None = Relationship(
         back_populates="purchased_listings", link_model=SaleListing
+    )
+
+    renters: Optional["User"] = Relationship(
+        back_populates="rented_listings", link_model=RentListing
     )
