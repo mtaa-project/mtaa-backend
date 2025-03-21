@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: bcf5362c68a0
+Revision ID: 0e45bc953c47
 Revises:
-Create Date: 2025-03-21 19:24:08.500338
+Create Date: 2025-03-21 19:46:50.106362
 
 """
 
@@ -13,7 +13,7 @@ import sqlmodel
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "bcf5362c68a0"
+revision: str = "0e45bc953c47"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -211,3 +211,5 @@ def downgrade() -> None:
     op.drop_table("product")
     op.drop_table("categories")
     # ### end Alembic commands ###
+    op.execute("DROP TYPE IF EXISTS listingstatus CASCADE")
+    op.execute("DROP TYPE IF EXISTS offertype CASCADE")
