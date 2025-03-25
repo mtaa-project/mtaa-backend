@@ -31,3 +31,7 @@ def get_firebase_user_from_token(
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     async with async_session() as session:
         yield session
+
+
+async def get_user(request: Request):
+    return request.state.user

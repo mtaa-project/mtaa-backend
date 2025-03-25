@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer
 from firebase_admin import _apps, auth, credentials, initialize_app
 
 from app.api.routes import auth_route, users_route
@@ -8,7 +9,9 @@ if not _apps:
     cred = credentials.Certificate("mtaa-project-service-account.json")
     initialize_app(cred)
 
-app = FastAPI()
+security = HTTPBearer()
+
+app = FastAPI(dependencies=[Depends(security)])
 
 app.include_router(auth_route.router)
 app.include_router(users_route.router)
@@ -34,7 +37,8 @@ async def authenticate_request(request: Request, call_next):
             detail="Invalid or missing authentication token",
         )
     try:
-        auth.verify_id_token(token)
+        user = auth.verify_id_token(token)
+        request.state.user = user
         return await call_next(request)
     except Exception as e:
         raise JSONResponse(

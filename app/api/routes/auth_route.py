@@ -29,7 +29,6 @@ async def register_user(
     user=Depends(get_firebase_user_from_token),
     register_form: RegisterFormRequest,
 ):
-    print(user)
     user_uid = user.get("uid")
     user_email = user.get("email")
 
