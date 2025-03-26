@@ -5,9 +5,10 @@ from firebase_admin import _apps, auth, credentials, initialize_app
 
 from app.api.routes import auth_route, users_route
 
+app = None
 if not _apps:
     cred = credentials.Certificate("mtaa-project-service-account.json")
-    initialize_app(cred)
+    firebase_app = initialize_app(cred)
 
 security = HTTPBearer()
 
@@ -32,16 +33,16 @@ async def authenticate_request(request: Request, call_next):
 
     token = auth_header.split(" ")[1] if " " in auth_header else None
     if not token:
-        raise JSONResponse(
+        return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid or missing authentication token",
+            content="Invalid or missing authentication token",
         )
     try:
-        user = auth.verify_id_token(token)
+        user = auth.verify_id_token(token, firebase_app)
         request.state.user = user
         return await call_next(request)
     except Exception as e:
-        raise JSONResponse(
+        return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            content="Invalid or expired token",
         )

@@ -4,7 +4,10 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.api.dependencies import get_async_session, get_firebase_user_from_token
+from app.api.dependencies import (
+    get_async_session,
+    get_user,
+)
 from app.models.user_model import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -26,7 +29,7 @@ class RegisterFormRequest(BaseModel):
 async def register_user(
     *,
     session: AsyncSession = Depends(get_async_session),
-    user=Depends(get_firebase_user_from_token),
+    user=Depends(get_user),
     register_form: RegisterFormRequest,
 ):
     user_uid = user.get("uid")
@@ -65,7 +68,7 @@ async def register_user(
 async def google_auth(
     *,
     session: AsyncSession = Depends(get_async_session),
-    firebase_user: dict = Depends(get_firebase_user_from_token),
+    firebase_user=Depends(get_user),
     data: RegisterFormRequest,
 ):
     firebase_uid = firebase_user.get("uid")
@@ -83,7 +86,37 @@ async def google_auth(
         new_user = User(
             firstname=data.firstname,
             lastname=data.lastname,
-            phone_number=data.phone_number,
+            email=firebase_email,
+        )
+
+        session.add(new_user)
+        await session.commit()
+        return {"message": "User created", "user": new_user}
+
+    return {"message": "User already exist", "user": db_user}
+
+
+@router.post("/facebook")
+async def facebook_auth(
+    *,
+    session: AsyncSession = Depends(get_async_session),
+    firebase_user=Depends(get_user),
+    data: RegisterFormRequest,
+):
+    firebase_uid = firebase_user.get("uid")
+    firebase_email = firebase_user.get("email")
+
+    result = await session.execute(select(User).where(User.email == firebase_email))
+    db_user = result.scalar_one_or_none()
+
+    print("data:")
+    print(data)
+    print(8 * "-")
+
+    if not db_user:
+        new_user = User(
+            firstname=data.firstname,
+            lastname=data.lastname,
             email=firebase_email,
         )
         session.add(new_user)
