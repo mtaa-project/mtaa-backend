@@ -38,7 +38,7 @@ class User(SQLModel, table=True):
     )
 
     search_alerts: List["UserSearchAlert"] = Relationship(
-        back_populates="alerts",
+        back_populates="user",
         # This configures SQLModel to automatically delete the related
         # records (UserSearchAlert) when the initial one is deleted (a User).
         cascade_delete=True,
