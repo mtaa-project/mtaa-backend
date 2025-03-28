@@ -45,7 +45,7 @@ async def register_user(
     if db_user is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Username '{register_form.email}' is already taken.",
+            detail=f"Email '{register_form.email}' is already taken.",
         )
 
     new_user = User(
