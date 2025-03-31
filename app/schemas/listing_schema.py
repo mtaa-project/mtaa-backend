@@ -13,13 +13,12 @@ class ListingBase(SQLModel):
     price: Decimal
     listing_status: ListingStatus = ListingStatus.ACTIVE
     offer_type: OfferType
-    visibility: bool = True
+    category_ids: list[int] | None = None
 
 
 class ListingCreate(ListingBase):
     seller_id: int
-    address_id: int | None = None
-    category_ids: list[int] | None = None
+    address_id: int | None = None  # address visibility is handled in the address model
 
 
 class ListingRead(ListingBase):
@@ -28,7 +27,6 @@ class ListingRead(ListingBase):
     updated_at: datetime
     seller_id: int
     address_id: int | None = None
-    categories: list[str] | None = None
 
 
 class ListingUpdate(SQLModel):
@@ -37,5 +35,8 @@ class ListingUpdate(SQLModel):
     price: Decimal | None = None
     listing_status: ListingStatus | None = None
     offer_type: OfferType | None = None
-    visibility: bool | None = None
+    visibility: bool = (
+        True  # address visibility is used to set address visibility in address model
+    )
     address_id: int | None = None
+    category_ids: list[int] | None = None
