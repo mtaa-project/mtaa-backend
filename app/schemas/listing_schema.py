@@ -1,12 +1,14 @@
 from decimal import Decimal
-from typing import List
+from typing import TYPE_CHECKING, List
 
 from sqlmodel import SQLModel
 
 from app.models.address_model import Address
-from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
+
+if TYPE_CHECKING:
+    from app.models.category_model import Category
 
 
 # TODO: add field validators for ListingBase
@@ -29,7 +31,7 @@ class ListingCreate(ListingBase):
 # this is used to read listing data from the database
 class ListingView(ListingBase):
     address: Address
-    categories: list[Category]  # list of category ids
+    categories: list["Category"]  # list of category ids
 
 
 # schema for listing update
