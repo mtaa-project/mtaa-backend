@@ -1,16 +1,15 @@
-from datetime import UTC, datetime
-from decimal import Decimal
+from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
+from zoneinfo import ZoneInfo
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy import Column, DateTime, func
+from sqlmodel import Field, Relationship
 
+from app.models.category_listing_model import CategoryListing
+from app.models.favorite_listing_model import FavoriteListing
 from app.models.rent_listing_model import RentListing
-
-from .category_listing_model import CategoryListing
-from .enums.listing_status import ListingStatus
-from .enums.offer_type import OfferType
-from .favorite_listing_model import FavoriteListing
-from .sale_lisitng_model import SaleListing
+from app.models.sale_lisitng_model import SaleListing
+from app.schemas.listing_schema import ListingBase  # shared base from schema
 
 if TYPE_CHECKING:
     from .address_model import Address
@@ -18,40 +17,36 @@ if TYPE_CHECKING:
     from .user_model import User
 
 
-class Listing(SQLModel, table=True):
+class Listing(ListingBase, table=True):
     __tablename__ = "listings"
 
     id: int = Field(default=None, primary_key=True)
-    title: str = Field(max_length=255, unique=True)
-    description: str = Field(max_length=255)
-    price: Decimal = Field(max_digits=10, decimal_places=2)
-    listing_status: ListingStatus = Field(default=ListingStatus.ACTIVE)
-    offer_type: OfferType
-    visibility: bool = Field(default=True)  # True = visible, False = hidden
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(ZoneInfo("UTC")))
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(ZoneInfo("UTC")),
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            onupdate=func.now(),
+        ),
+    )
 
     # Foreign keys
     seller_id: int = Field(foreign_key="users.id")
-    address_id: int | None = Field(foreign_key="addresses.id")
+    address_id: int | None = Field(default=None, foreign_key="addresses.id")
 
     # Relationships
-    favorite_by: list["User"] = Relationship(
+    favorite_by: List["User"] = Relationship(
         back_populates="favorite_listings", link_model=FavoriteListing
     )
-
-    address: "Address" = Relationship(back_populates="listings")
-
+    address: Optional["Address"] = Relationship(back_populates="listings")
     categories: List["Category"] = Relationship(
         back_populates="listings", link_model=CategoryListing
     )
-
     seller: Optional["User"] = Relationship(back_populates="posted_listings")
-
-    buyer: Optional["User"] | None = Relationship(
+    buyer: Optional["User"] = Relationship(
         back_populates="purchased_listings", link_model=SaleListing
     )
-
     renters: Optional["User"] = Relationship(
         back_populates="rented_listings", link_model=RentListing
     )
