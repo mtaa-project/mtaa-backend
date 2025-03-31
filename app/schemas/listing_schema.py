@@ -1,7 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic.alias_generators import to_camel
 from sqlmodel import SQLModel
 
 from app.models.enums.listing_status import ListingStatus
@@ -20,6 +19,7 @@ class ListingBase(SQLModel):
 class ListingCreate(ListingBase):
     seller_id: int
     address_id: int | None = None
+    category_ids: list[int] | None = None
 
 
 class ListingRead(ListingBase):
@@ -29,12 +29,6 @@ class ListingRead(ListingBase):
     seller_id: int
     address_id: int | None = None
     categories: list[str] | None = None
-
-    # Setup to use camelCase for frontend compatibility
-    # TODO: check with @svato
-    class Config:
-        populate_by_name = True
-        alias_generator = to_camel
 
 
 class ListingUpdate(SQLModel):
