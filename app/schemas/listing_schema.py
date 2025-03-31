@@ -1,4 +1,3 @@
-from datetime import datetime
 from decimal import Decimal
 
 from sqlmodel import SQLModel
@@ -7,26 +6,29 @@ from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
 
 
+# TODO: add field validators for ListingBase
+# schema for listing
 class ListingBase(SQLModel):
     title: str
     description: str
     price: Decimal
-    listing_status: ListingStatus = ListingStatus.ACTIVE
+    listing_status: ListingStatus
     offer_type: OfferType
-    category_ids: list[int] | None = None
 
 
+# schema for listing creation
 class ListingCreate(ListingBase):
-    seller_id: int
-    address_id: int | None = None  # address visibility is handled in the address model
+    address_id: int  # address visibility is handled in the address model
+    category_ids: list[int]  # list of category ids
+    visibility: bool  # address visibility is used to set address visibility in address model  # if true, address is visible to all users
 
 
-class ListingRead(ListingBase):
-    id: int
-    created_at: datetime
-    updated_at: datetime
-    seller_id: int
-    address_id: int | None = None
+# schema for listing view
+# this is used to read listing data from the database
+class ListingView(ListingBase):
+    address_id: int
+    category_ids: list[int]  # list of category ids
+    visibility: bool
 
 
 class ListingUpdate(SQLModel):
@@ -35,8 +37,6 @@ class ListingUpdate(SQLModel):
     price: Decimal | None = None
     listing_status: ListingStatus | None = None
     offer_type: OfferType | None = None
-    visibility: bool = (
-        True  # address visibility is used to set address visibility in address model
-    )
     address_id: int | None = None
     category_ids: list[int] | None = None
+    visibility: bool | None = None
