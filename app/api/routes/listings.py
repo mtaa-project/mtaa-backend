@@ -12,7 +12,12 @@ from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
 from app.models.listing_model import Listing
 from app.models.user_model import User
-from app.schemas.listing_schema import ListingCreate, ListingUpdate, ListingView
+from app.schemas.listing_schema import (
+    ListingCreate,
+    ListingUpdate,
+    ListingView,
+    getParameters,
+)
 
 router = APIRouter(prefix="/listings")
 
@@ -27,7 +32,7 @@ router = APIRouter(prefix="/listings")
 )
 async def create_listing(
     *,
-    listing_create: ListingCreate = Body(
+    new_listing_data: ListingCreate = Body(
         ...,
         example={
             "title": "Electric Scooter",
@@ -50,18 +55,18 @@ async def create_listing(
         raise HTTPException(status_code=404, detail="User not found in DB")
 
     # check that address exists
-    if listing_create.address_id:
-        address = await session.get(Address, listing_create.address_id)
+    if new_listing_data.address_id:
+        address = await session.get(Address, new_listing_data.address_id)
         if not address:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Address with ID {listing_create.address_id} not found.",
+                detail=f"Address with ID {new_listing_data.address_id} not found.",
             )
 
     # check that categories exist and collect them
     category_objs = []
-    if listing_create.category_ids:
-        for category_id in listing_create.category_ids:
+    if new_listing_data.category_ids:
+        for category_id in new_listing_data.category_ids:
             category = await session.get(Category, category_id)
             if not category:
                 raise HTTPException(
@@ -71,7 +76,7 @@ async def create_listing(
             category_objs.append(category)
 
     # create listing instance
-    new_listing = Listing.model_validate(listing_create)
+    new_listing = Listing.model_validate(new_listing_data)
     new_listing.seller_id = db_user.id
     new_listing.categories = category_objs
 
@@ -94,14 +99,7 @@ async def get_my_listings(
     *,
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_user),
-    limit: int = 10,
-    offset: int = 0,
-    listing_status: ListingStatus | None = None,
-    offer_type: OfferType | None = None,
-    visibility: bool | None = None,
-    category_ids: List[int] | None = None,
-    min_price: int | None = None,
-    max_price: int | None = None,
+    params: getParameters,
 ):
     email = user.get("email")
     result = await session.exec(select(User).where(User.email == email))
@@ -116,6 +114,7 @@ async def get_my_listings(
     return listings.scalars().all()
 
 
+# TODO: use
 # get listings with specific categories, price, status, offer type, and (address) visibility
 @router.get(
     "/",
@@ -146,8 +145,13 @@ async def get_listings_by_category(
                 )
 
     # LISTING STATUS FROM FRONTEND CANNOT BE REMOVED
-    assert listing_status != ListingStatus.REMOVED
+    if listing_status == ListingStatus.REMOVED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Listing status cannot be REMOVED when filtering listings.",
+        )
 
+    # TODO: check if this is the correct way to create query
     # build query
     query = select(Listing)
     if category_ids:
@@ -212,7 +216,7 @@ async def get_listing(
 async def update_listing(
     *,
     listing_id: int,
-    listing_update: ListingUpdate,
+    updated_listing_data: ListingUpdate,
     session: AsyncSession = Depends(get_async_session),
 ):
     # check that listing exists
@@ -236,18 +240,20 @@ async def update_listing(
         )
 
     # check that address exists
-    if listing_update.address_id:
-        address = await session.get(Address, listing_update.address_id)
+    if updated_listing_data.address_id:
+        address = await session.get(Address, updated_listing_data.address_id)
         if not address:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Address with ID {listing_update.address_id} not found.",
+                detail=f"Address with ID {updated_listing_data.address_id} not found.",
             )
 
+        listing.address = address
+
     # check that categories exist
-    if listing_update.category_ids:
+    if updated_listing_data.category_ids:
         category_objs = []
-        for category_id in listing_update.category_ids:
+        for category_id in updated_listing_data.category_ids:
             category = await session.get(Category, category_id)
             if not category:
                 raise HTTPException(
@@ -256,19 +262,22 @@ async def update_listing(
                 )
             category_objs.append(category)
 
-        # Clear existing category links
-        await session.exec(
-            select(CategoryListing)
-            .where(CategoryListing.listing_id == listing.id)
-            .delete()
-        )
+        listing.categories = category_objs
+        # TODO: change this so that the categories are updated through the relationship
 
-        # Add new category links
-        for category in category_objs:
-            session.add(CategoryListing(listing_id=listing.id, category_id=category.id))
+        # # Clear existing category links
+        # await session.exec(
+        #     select(CategoryListing)
+        #     .where(CategoryListing.listing_id == listing.id)
+        #     .delete()
+        # )
+
+        # # Add new category links
+        # for category in category_objs:
+        #     session.add(CategoryListing(listing_id=listing.id, category_id=category.id))
 
     # update listing instance
-    update_data = listing_update.model_dump(exclude_unset=True)
+    update_data = updated_listing_data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(listing, key, value)
 
