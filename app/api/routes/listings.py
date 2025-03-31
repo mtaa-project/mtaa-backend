@@ -1,6 +1,6 @@
 from typing import List
 
-from api.dependencies import get_async_session
+from api.dependencies import get_async_session, get_user
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -12,7 +12,7 @@ from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
 from app.models.listing_model import Listing
 from app.models.user_model import User
-from app.schemas.listing_schema import ListingCreate, ListingRead, ListingUpdate
+from app.schemas.listing_schema import ListingCreate, ListingUpdate, ListingView
 
 router = APIRouter(prefix="/listings")
 
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/listings")
 # create listing
 @router.post(
     "/",
-    response_model=ListingRead,
+    response_model=ListingView,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new listing",
     description="Creates a listing with optional address and category assignments. Requires a valid seller ID.",
@@ -36,20 +36,18 @@ async def create_listing(
             "listing_status": "ACTIVE",
             "offer_type": "SELL",
             "visibility": True,
-            "seller_id": 1,
             "address_id": 2,
             "category_ids": [3, 5],
         },
     ),
     session: AsyncSession = Depends(get_async_session),
 ):
-    # check that seller exists
-    seller = await session.get(User, listing_create.seller_id)
-    if not seller:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Seller with ID {listing_create.seller_id} not found.",
-        )
+    # get current user
+    email = await get_user("email")
+    result = await session.exec(select(User).where(User.email == email))
+    db_user = result.first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found in DB")
 
     # check that address exists
     if listing_create.address_id:
@@ -60,7 +58,8 @@ async def create_listing(
                 detail=f"Address with ID {listing_create.address_id} not found.",
             )
 
-    # check that categories exist
+    # check that categories exist and collect them
+    category_objs = []
     if listing_create.category_ids:
         for category_id in listing_create.category_ids:
             category = await session.get(Category, category_id)
@@ -69,9 +68,12 @@ async def create_listing(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Category with ID {category_id} not found.",
                 )
+            category_objs.append(category)
 
     # create listing instance
     new_listing = Listing.model_validate(listing_create)
+    new_listing.seller_id = db_user.id
+    new_listing.categories = category_objs
 
     # add listing to DB session
     session.add(new_listing)
@@ -81,10 +83,43 @@ async def create_listing(
     return new_listing
 
 
+# get current user's listings
+@router.get(
+    "/my-listings",
+    response_model=List[ListingView],
+    summary="Get current user's listings",
+    description="Fetch all listings created by the current user.",
+)
+async def get_my_listings(
+    *,
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_user),
+    limit: int = 10,
+    offset: int = 0,
+    listing_status: ListingStatus | None = None,
+    offer_type: OfferType | None = None,
+    visibility: bool | None = None,
+    category_ids: List[int] | None = None,
+    min_price: int | None = None,
+    max_price: int | None = None,
+):
+    email = user.get("email")
+    result = await session.exec(select(User).where(User.email == email))
+    db_user = result.first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found in DB")
+
+    listings = await session.exec(
+        select(Listing).where(Listing.seller_id == db_user.id)
+    )
+
+    return listings.scalars().all()
+
+
 # get listings with specific categories, price, status, offer type, and (address) visibility
 @router.get(
     "/",
-    response_model=List[ListingRead],
+    response_model=List[ListingView],
     summary="Filter and list listings",
     description="Retrieve listings by categories, price range, offer type, and address visibility. Listings with status REMOVED are excluded.",
 )
@@ -93,12 +128,12 @@ async def get_listings_by_category(
     session: AsyncSession = Depends(get_async_session),
     limit: int = 10,
     offset: int = 0,
-    category_ids: List[int] | None = None,
-    min_price: int | None = None,
-    max_price: int | None = None,
     listing_status: ListingStatus | None = None,
     offer_type: OfferType | None = None,
     visibility: bool | None = None,
+    category_ids: List[int] | None = None,
+    min_price: int | None = None,
+    max_price: int | None = None,
 ):
     # check that categories exists
     if category_ids:
@@ -140,7 +175,7 @@ async def get_listings_by_category(
 # get specific listing by id
 @router.get(
     "/{listing_id}",
-    response_model=ListingRead,
+    response_model=ListingView,
     summary="Get a listing by ID",
     description="Fetch a specific listing by ID unless its status is REMOVED.",
 )
@@ -170,7 +205,7 @@ async def get_listing(
 # update listing
 @router.put(
     "/{listing_id}",
-    response_model=ListingRead,
+    response_model=ListingView,
     summary="Update an existing listing",
     description="Updates listing fields and category relationships. You must provide valid address/category IDs.",
 )
@@ -186,6 +221,18 @@ async def update_listing(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Listing with ID {listing_id} not found.",
+        )
+
+    # check that user is logged in and is the seller of the listing
+    email = await get_user("email")
+    result = await session.exec(select(User).where(User.email == email))
+    db_user = result.first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found in DB")
+    if db_user.id != listing.seller_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to update this listing.",
         )
 
     # check that address exists
