@@ -1,7 +1,7 @@
 from typing import List
 
 from api.dependencies import get_async_session
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -18,10 +18,29 @@ router = APIRouter(prefix="/listings")
 
 
 # create listing
-@router.post("/", response_model=ListingRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=ListingRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new listing",
+    description="Creates a listing with optional address and category assignments. Requires a valid seller ID.",
+)
 async def create_listing(
     *,
-    listing_create: ListingCreate,
+    listing_create: ListingCreate = Body(
+        ...,
+        example={
+            "title": "Electric Scooter",
+            "description": "Battery-powered scooter in great condition.",
+            "price": 250.00,
+            "listing_status": "ACTIVE",
+            "offer_type": "SELL",
+            "visibility": True,
+            "seller_id": 1,
+            "address_id": 2,
+            "category_ids": [3, 5],
+        },
+    ),
     session: AsyncSession = Depends(get_async_session),
 ):
     # check that seller exists
@@ -63,11 +82,17 @@ async def create_listing(
 
 
 # get listings with specific categories, price, status, offer type, and (address) visibility
-@router.get("/", response_model=List[ListingRead])
+@router.get(
+    "/",
+    response_model=List[ListingRead],
+    summary="Filter and list listings",
+    description="Retrieve listings by categories, price range, offer type, and address visibility. Listings with status REMOVED are excluded.",
+)
 async def get_listings_by_category(
     *,
     session: AsyncSession = Depends(get_async_session),
     limit: int = 10,
+    offset: int = 0,
     category_ids: List[int] | None = None,
     min_price: int | None = None,
     max_price: int | None = None,
@@ -104,6 +129,7 @@ async def get_listings_by_category(
         query = query.join(Address).where(Address.visibility == visibility)
 
     query = query.limit(limit)
+    query = query.offset(offset)
 
     listings = await session.execute(query)
     listings = listings.scalars().all()
@@ -112,7 +138,12 @@ async def get_listings_by_category(
 
 
 # get specific listing by id
-@router.get("/{listing_id}", response_model=ListingRead)
+@router.get(
+    "/{listing_id}",
+    response_model=ListingRead,
+    summary="Get a listing by ID",
+    description="Fetch a specific listing by ID unless its status is REMOVED.",
+)
 async def get_listing(
     *,
     listing_id: int,
@@ -126,17 +157,23 @@ async def get_listing(
         )
 
     # check that listing is not removed
-    if listing.listing_status == ListingStatus.REMOVED:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Listing with ID {listing_id} has been removed.",
-        )
+    assert listing.listing_status != ListingStatus.REMOVED
+    # if listing.listing_status == ListingStatus.REMOVED:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_404_NOT_FOUND,
+    #         detail=f"Listing with ID {listing_id} has been removed.",
+    #     )
 
     return listing
 
 
 # update listing
-@router.put("/{listing_id}", response_model=ListingRead)
+@router.put(
+    "/{listing_id}",
+    response_model=ListingRead,
+    summary="Update an existing listing",
+    description="Updates listing fields and category relationships. You must provide valid address/category IDs.",
+)
 async def update_listing(
     *,
     listing_id: int,
@@ -196,7 +233,12 @@ async def update_listing(
 
 
 # delete listing
-@router.delete("/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{listing_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Soft-delete a listing",
+    description="Marks the listing as REMOVED. It will no longer be visible to users.",
+)
 async def delete_listing(
     *,
     listing_id: int,
