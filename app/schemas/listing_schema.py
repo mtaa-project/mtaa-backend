@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from app.models.category_model import Category
 
 
-# TODO: add field validators for ListingBase
 # schema for listing
 class ListingBase(SQLModel):
     title: str
@@ -43,7 +42,6 @@ class ListingUpdate(SQLModel):
     offer_type: OfferType | None = None
     address_id: int | None = None
     category_ids: list[int] | None = None
-    visibility: bool | None = None
 
 
 class getParameters(SQLModel):
@@ -51,7 +49,6 @@ class getParameters(SQLModel):
     offset: int = 0
     listing_status: ListingStatus | None = None
     offer_type: OfferType | None = None
-    visibility: bool | None = None
     category_ids: List[int] | None = None
     min_price: int | None = None
     max_price: int | None = None
