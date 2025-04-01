@@ -1,15 +1,13 @@
 from typing import List
 
-from api.dependencies import get_async_session, get_user
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.api.dependencies import get_async_session, get_user
 from app.models.address_model import Address
-from app.models.category_listing_model import CategoryListing
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
-from app.models.enums.offer_type import OfferType
 from app.models.listing_model import Listing
 from app.models.user_model import User
 from app.schemas.listing_schema import (
@@ -40,20 +38,13 @@ async def create_listing(
             "price": 250.00,
             "listing_status": "ACTIVE",
             "offer_type": "SELL",
-            "visibility": True,
             "address_id": 2,
             "category_ids": [3, 5],
         },
     ),
     session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_user),
 ):
-    # get current user
-    email = await get_user("email")
-    result = await session.exec(select(User).where(User.email == email))
-    db_user = result.first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found in DB")
-
     # check that address exists
     if new_listing_data.address_id:
         address = await session.get(Address, new_listing_data.address_id)
@@ -76,8 +67,9 @@ async def create_listing(
             category_objs.append(category)
 
     # create listing instance
+    # all fields that are in Listing model are copied to the Listing instance, fields that are not in the model are ignored (category_ids, address_id)
     new_listing = Listing.model_validate(new_listing_data)
-    new_listing.seller_id = db_user.id
+    new_listing.seller_id = user.id
     new_listing.categories = category_objs
 
     # add listing to DB session
@@ -99,7 +91,6 @@ async def get_my_listings(
     *,
     session: AsyncSession = Depends(get_async_session),
     user: User = Depends(get_user),
-    params: getParameters,
 ):
     email = user.get("email")
     result = await session.exec(select(User).where(User.email == email))
@@ -114,29 +105,21 @@ async def get_my_listings(
     return listings.scalars().all()
 
 
-# TODO: use
-# get listings with specific categories, price, status, offer type, and (address) visibility
+# get listings with specific categories, price, status, offer type, and (address)
 @router.get(
     "/",
     response_model=List[ListingView],
     summary="Filter and list listings",
-    description="Retrieve listings by categories, price range, offer type, and address visibility. Listings with status REMOVED are excluded.",
+    description="Retrieve listings by categories, price range, offer type, .... Listings with status REMOVED are excluded.",
 )
 async def get_listings_by_category(
     *,
     session: AsyncSession = Depends(get_async_session),
-    limit: int = 10,
-    offset: int = 0,
-    listing_status: ListingStatus | None = None,
-    offer_type: OfferType | None = None,
-    visibility: bool | None = None,
-    category_ids: List[int] | None = None,
-    min_price: int | None = None,
-    max_price: int | None = None,
+    params: getParameters,
 ):
     # check that categories exists
-    if category_ids:
-        for category_id in category_ids:
+    if params.category_ids:
+        for category_id in params.category_ids:
             category = await session.get(Category, category_id)
             if not category:
                 raise HTTPException(
@@ -145,30 +128,29 @@ async def get_listings_by_category(
                 )
 
     # LISTING STATUS FROM FRONTEND CANNOT BE REMOVED
-    if listing_status == ListingStatus.REMOVED:
+    if params.listing_status == ListingStatus.REMOVED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Listing status cannot be REMOVED when filtering listings.",
         )
 
-    # TODO: check if this is the correct way to create query
     # build query
     query = select(Listing)
-    if category_ids:
-        query = query.where(Listing.categories.any(Category.id.in_(category_ids)))
-    if min_price:
-        query = query.where(Listing.price >= min_price)
-    if max_price:
-        query = query.where(Listing.price <= max_price)
-    if listing_status:
-        query = query.where(Listing.listing_status == listing_status)
-    if offer_type:
-        query = query.where(Listing.offer_type == offer_type)
-    if visibility:
-        query = query.join(Address).where(Address.visibility == visibility)
+    if params.category_ids:
+        query = query.where(
+            Listing.categories.any(Category.id.in_(params.category_ids))
+        )
+    if params.min_price:
+        query = query.where(Listing.price >= params.min_price)
+    if params.max_price:
+        query = query.where(Listing.price <= params.max_price)
+    if params.listing_status:
+        query = query.where(Listing.listing_status == params.listing_status)
+    if params.offer_type:
+        query = query.where(Listing.offer_type == params.offer_type)
 
-    query = query.limit(limit)
-    query = query.offset(offset)
+    query = query.limit(params.limit)
+    query = query.offset(params.offset)
 
     listings = await session.execute(query)
     listings = listings.scalars().all()
@@ -196,12 +178,11 @@ async def get_listing(
         )
 
     # check that listing is not removed
-    assert listing.listing_status != ListingStatus.REMOVED
-    # if listing.listing_status == ListingStatus.REMOVED:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_404_NOT_FOUND,
-    #         detail=f"Listing with ID {listing_id} has been removed.",
-    #     )
+    if listing.listing_status == ListingStatus.REMOVED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} has been removed.",
+        )
 
     return listing
 
@@ -216,8 +197,9 @@ async def get_listing(
 async def update_listing(
     *,
     listing_id: int,
-    updated_listing_data: ListingUpdate,
     session: AsyncSession = Depends(get_async_session),
+    updated_listing_data: ListingUpdate,
+    user: User = Depends(get_user),
 ):
     # check that listing exists
     listing = await session.get(Listing, listing_id)
@@ -228,12 +210,7 @@ async def update_listing(
         )
 
     # check that user is logged in and is the seller of the listing
-    email = await get_user("email")
-    result = await session.exec(select(User).where(User.email == email))
-    db_user = result.first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found in DB")
-    if db_user.id != listing.seller_id:
+    if user.id != listing.seller_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not authorized to update this listing.",
@@ -263,18 +240,6 @@ async def update_listing(
             category_objs.append(category)
 
         listing.categories = category_objs
-        # TODO: change this so that the categories are updated through the relationship
-
-        # # Clear existing category links
-        # await session.exec(
-        #     select(CategoryListing)
-        #     .where(CategoryListing.listing_id == listing.id)
-        #     .delete()
-        # )
-
-        # # Add new category links
-        # for category in category_objs:
-        #     session.add(CategoryListing(listing_id=listing.id, category_id=category.id))
 
     # update listing instance
     update_data = updated_listing_data.model_dump(exclude_unset=True)
