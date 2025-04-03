@@ -41,6 +41,7 @@ router = APIRouter(prefix="/listings")
 #     return result.scalar_one_or_none()
 
 
+# TODO: change this so that pictures can be uploaded, change response model, and change ListingCreate schema to take pictures
 # create listing
 @router.post(
     "/",
@@ -133,7 +134,7 @@ async def get_my_listings(
     summary="Filter and list listings",
     description="Retrieve listings by categories, price range, offer type, .... Listings with status REMOVED are excluded.",
 )
-async def get_listings_by_category(
+async def get_listings_by_params(
     *,
     session: AsyncSession = Depends(get_async_session),
     params: getParameters,
@@ -198,9 +199,9 @@ async def get_listing(
             selectinload(Listing.address),
             selectinload(Listing.categories),
             selectinload(Listing.seller),
-            selectinload(Listing.favorite_by),
-            selectinload(Listing.renters),
-            selectinload(Listing.buyer),
+            # selectinload(Listing.favorite_by),
+            # selectinload(Listing.renters),
+            # selectinload(Listing.buyer),
         )
     )
     listing = result.scalar_one_or_none()
@@ -243,6 +244,7 @@ async def update_listing(
             detail=f"Listing with ID {listing_id} not found.",
         )
 
+    # TODO: !!!!CHECK USER ONLY THROUGH EMAIL!!!!!
     # check that user is logged in and is the seller of the listing
     if user.id != listing.seller_id:
         raise HTTPException(
@@ -313,3 +315,6 @@ async def delete_listing(
     await session.commit()
     await session.refresh(listing)
     return listing
+
+
+# TODO: make more routes for listing and make them more personalized, and personalized response scheme for every route
