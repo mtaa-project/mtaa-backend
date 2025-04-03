@@ -4,11 +4,9 @@ from typing import TYPE_CHECKING, List
 from sqlmodel import SQLModel
 
 from app.models.address_model import Address
+from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
-
-if TYPE_CHECKING:
-    from app.models.category_model import Category
 
 
 # schema for listing
