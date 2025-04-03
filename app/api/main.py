@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 from firebase_admin import _apps, auth, credentials, initialize_app
 
-from app.api.routes import auth_route, users_route
+from app.api.routes import auth_route, listings, users_route
 
 app = None
 if not _apps:
@@ -13,9 +13,11 @@ if not _apps:
 security = HTTPBearer()
 
 app = FastAPI(dependencies=[Depends(security)])
+# app = FastAPI()
 
 app.include_router(auth_route.router)
 app.include_router(users_route.router)
+app.include_router(listings.router)
 
 
 @app.middleware("http")
