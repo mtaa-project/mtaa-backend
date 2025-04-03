@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import TYPE_CHECKING, List
+from typing import List
 
 from sqlmodel import SQLModel
 
