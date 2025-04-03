@@ -2,6 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.api.dependencies import get_async_session, get_user
@@ -18,6 +19,26 @@ from app.schemas.listing_schema import (
 )
 
 router = APIRouter(prefix="/listings")
+
+
+# async def get_listing_from_db(listing_id: int, session: AsyncSession) -> Listing:
+#     """
+#     Helper function to get a listing from the database.
+#     """
+#     result = await session.execute(
+#         select(Listing)
+#         .where(Listing.id == listing_id)
+#         .options(
+#             selectinload(Listing.address),
+#             selectinload(Listing.categories),
+#             selectinload(Listing.seller),
+#             selectinload(Listing.favorite_by),
+#             selectinload(Listing.renters),
+#             selectinload(Listing.buyer),
+#         )
+#     )
+
+#     return result.scalar_one_or_none()
 
 
 # create listing
@@ -170,7 +191,20 @@ async def get_listing(
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
 ):
-    listing = await session.get(Listing, listing_id)
+    result = await session.execute(
+        select(Listing)
+        .where(Listing.id == listing_id)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+            selectinload(Listing.favorite_by),
+            selectinload(Listing.renters),
+            selectinload(Listing.buyer),
+        )
+    )
+    listing = result.scalar_one_or_none()
+
     if not listing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
