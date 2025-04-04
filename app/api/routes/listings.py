@@ -1,20 +1,22 @@
 from typing import List
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, status
+
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
+# from sqlmodel.orm import selectinload
 
-from app.api.dependencies import get_async_session, get_user
+from app.api.dependencies import get_async_session, get_user_db
 from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.listing_model import Listing
 from app.models.user_model import User
 from app.schemas.listing_schema import (
+    ListingCardDetails,
     ListingCreate,
     ListingUpdate,
-    ListingView,
     getParameters,
 )
 
@@ -45,27 +47,16 @@ router = APIRouter(prefix="/listings")
 # create listing
 @router.post(
     "/",
-    response_model=ListingView,
+    response_model=ListingCardDetails,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new listing",
     description="Creates a listing with optional address and category assignments. Requires a valid seller ID.",
 )
 async def create_listing(
     *,
-    new_listing_data: ListingCreate = Body(
-        ...,
-        example={
-            "title": "Electric Scooter",
-            "description": "Battery-powered scooter in great condition.",
-            "price": 250.00,
-            "listing_status": "ACTIVE",
-            "offer_type": "SELL",
-            "address_id": 2,
-            "category_ids": [3, 5],
-        },
-    ),
+    new_listing_data: ListingCreate,
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_db),
 ):
     # check that address exists
     if new_listing_data.address_id:
@@ -89,10 +80,16 @@ async def create_listing(
             category_objs.append(category)
 
     # create listing instance
-    # all fields that are in Listing model are copied to the Listing instance, fields that are not in the model are ignored (category_ids, address_id)
-    new_listing = Listing.model_validate(new_listing_data)
-    new_listing.seller_id = user.id
-    new_listing.categories = category_objs
+    new_listing = Listing(
+        title=new_listing_data.title,
+        description=new_listing_data.description,
+        price=new_listing_data.price,
+        listing_status=new_listing_data.listing_status,
+        offer_type=new_listing_data.offer_type,
+        address=address,
+        seller=user,
+        categories=category_objs,
+    )
 
     # add listing to DB session
     session.add(new_listing)
@@ -102,35 +99,31 @@ async def create_listing(
     return new_listing
 
 
-# get current user's listings
+# # get current user's listings
 @router.get(
     "/my-listings",
-    response_model=List[ListingView],
+    response_model=List[ListingCardDetails],
     summary="Get current user's listings",
     description="Fetch all listings created by the current user.",
 )
 async def get_my_listings(
     *,
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_db),
 ):
-    email = user.get("email")
-    result = await session.exec(select(User).where(User.email == email))
-    db_user = result.first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found in DB")
+    # return only posted listings that are not removed
+    
+    
 
-    listings = await session.exec(
-        select(Listing).where(Listing.seller_id == db_user.id)
-    )
+# listings = await session.exec(select(Listing).where(Listing.seller_id == user.id))
 
-    return listings.scalars().all()
+# return listings.scalars().all()
 
 
 # get listings with specific categories, price, status, offer type, and (address)
 @router.get(
     "/",
-    response_model=List[ListingView],
+    response_model=List[ListingCardDetails],
     summary="Filter and list listings",
     description="Retrieve listings by categories, price range, offer type, .... Listings with status REMOVED are excluded.",
 )
@@ -183,7 +176,7 @@ async def get_listings_by_params(
 # get specific listing by id
 @router.get(
     "/{listing_id}",
-    response_model=ListingView,
+    response_model=ListingCardDetails,
     summary="Get a listing by ID",
     description="Fetch a specific listing by ID unless its status is REMOVED.",
 )
@@ -225,7 +218,7 @@ async def get_listing(
 # update listing
 @router.put(
     "/{listing_id}",
-    response_model=ListingView,
+    response_model=ListingCardDetails,
     summary="Update an existing listing",
     description="Updates listing fields and category relationships. You must provide valid address/category IDs.",
 )
