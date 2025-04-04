@@ -2,6 +2,6 @@ from enum import Enum
 
 
 class OfferType(str, Enum):
-    LEND = "lend"
+    RENT = "rent"
     SELL = "sell"
     BOTH = "both"
