@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from typing import List
 
@@ -9,44 +10,82 @@ from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
 
 
-# schema for listing
+# Seller info schema
+# this is used to display seller info in listing cards
+class SellerInfoCard(SQLModel):
+    id: int
+    firstname: str
+    rating: float | None = None
+
+
+class SellerInfoExpanded(SellerInfoCard):
+    phone_number: str | None = None
+    email: str
+
+
+# Schema for images of listings used in listing cards and listing details
+# class ListingImage(SQLModel):
+#     id: int
+#     url: str
+#     description: str | None = None
+#     listing_id: int
+#     is_primary: bool = True
+
+
+# Basic schema for listing data
 class ListingBase(SQLModel):
     title: str
-    description: str
     price: Decimal
     listing_status: ListingStatus
     offer_type: OfferType
 
 
+# Schema for displaying listing data in medium and big cards
+# this is used to read listing data from the database
+class ListingCard(ListingBase):
+    id: int
+
+    # user specific information
+    liked: bool
+    seller: SellerInfoCard
+    # images: List[ListingImage]
+
+    # extra information for listing cards that can be used for filtering and sorting
+    address: Address
+    categories: list["Category"]  # list of category ids
+    created_at: datetime
+    updated_at: datetime
+
+
+# Schema for displaying listing data in medium and big cards
+# this is used to read listing data from the database
+class ListingCardDetails(ListingCard):
+    description: str
+
+
 # schema for listing creation
 class ListingCreate(ListingBase):
+    description: str
     address_id: int  # address visibility is handled in the address model
     category_ids: list[int]  # list of category ids
 
 
-# schema for listing view
-# this is used to read listing data from the database
-class ListingView(ListingBase):
-    address: Address
-    categories: list["Category"]  # list of category ids
+# # schema for listing update
+# class ListingUpdate(SQLModel):
+#     title: str | None = None
+#     description: str | None = None
+#     price: Decimal | None = None
+#     listing_status: ListingStatus | None = None
+#     offer_type: OfferType | None = None
+#     address_id: int | None = None
+#     category_ids: list[int] | None = None
 
 
-# schema for listing update
-class ListingUpdate(SQLModel):
-    title: str | None = None
-    description: str | None = None
-    price: Decimal | None = None
-    listing_status: ListingStatus | None = None
-    offer_type: OfferType | None = None
-    address_id: int | None = None
-    category_ids: list[int] | None = None
-
-
-class getParameters(SQLModel):
-    limit: int = 10
-    offset: int = 0
-    listing_status: ListingStatus | None = None
-    offer_type: OfferType | None = None
-    category_ids: List[int] | None = None
-    min_price: int | None = None
-    max_price: int | None = None
+# class getParameters(SQLModel):
+#     limit: int = 10
+#     offset: int = 0
+#     listing_status: ListingStatus | None = None
+#     offer_type: OfferType | None = None
+#     category_ids: List[int] | None = None
+#     min_price: int | None = None
+#     max_price: int | None = None
