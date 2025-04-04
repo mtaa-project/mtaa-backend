@@ -1,7 +1,21 @@
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+import os
+import shutil
+from typing import Annotated, List
+
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer
 from firebase_admin import _apps, auth, credentials, initialize_app
+from pydantic import BaseModel, conlist
 
 from app.api.routes import auth_route, listings, users_route
 
@@ -48,3 +62,32 @@ async def authenticate_request(request: Request, call_next):
             status_code=status.HTTP_401_UNAUTHORIZED,
             content="Invalid or expired token",
         )
+
+
+app = FastAPI()
+UPLOAD_DIRECTORY = "./uploads"
+
+FilesType = Annotated[conlist(UploadFile, min_length=3, max_length=3), File(...)]
+
+
+class ProductForm(BaseModel):
+    product_name: str
+    product_category: str
+    files: FilesType
+
+
+@app.post("/uploadfile")
+async def create_upload_file(form: ProductForm = File(...)):
+    saved_files = []
+    for file in form.files:
+        file_location = os.path.join(UPLOAD_DIRECTORY, file.filename)
+        with open(file_location, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        saved_files.append({"filename": file.filename, "location": file_location})
+    print(form.product_name, form.product_category)
+    return {
+        "product_name": form.product_name,
+        "product_category": form.product_category,
+        "files": saved_files,
+    }
