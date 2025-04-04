@@ -1,7 +1,8 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
+from sqlalchemy import TIMESTAMP, Column
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.rent_listing_model import RentListing
@@ -30,7 +31,10 @@ class Listing(SQLModel, table=True):
     # visibility: bool = Field(default=True)  # True = visible, False = hidden
     # visibility is handled in the listing status as HIDDEN
     # address visibility is handled in the address model
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(TIMESTAMP(timezone=True), nullable=False),
+    )
     updated_at: datetime | None = None
 
     # Foreign keys
