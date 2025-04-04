@@ -1,6 +1,7 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timezone
 from typing import TYPE_CHECKING, Optional
 
+from sqlalchemy import TIMESTAMP, Column
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -15,9 +16,13 @@ class UserReview(SQLModel, table=True):
     text: str = Field(max_length=500)
     rating: int = Field(ge=1, le=5)
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: Optional[datetime] = None
-
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(TIMESTAMP(timezone=True), nullable=False),
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
+    )
     # Foreign keys
     reviewer_id: int | None = Field(foreign_key="users.id", ondelete="SET NULL")
     reviewee_id: int | None = Field(foreign_key="users.id", ondelete="SET NULL")
