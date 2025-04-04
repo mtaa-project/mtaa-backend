@@ -1,11 +1,9 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import asc, desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
-# from sqlmodel.orm import selectinload
 
 from app.api.dependencies import get_async_session, get_user_db
 from app.models.address_model import Address
@@ -15,9 +13,11 @@ from app.models.listing_model import Listing
 from app.models.user_model import User
 from app.schemas.listing_schema import (
     ListingCardDetails,
+    ListingCardProfile,
     ListingCreate,
     ListingUpdate,
-    getParameters,
+    SellerInfoCard,
+    listingQueryParameters,
 )
 
 router = APIRouter(prefix="/listings")
@@ -99,10 +99,10 @@ async def create_listing(
     return new_listing
 
 
-# # get current user's listings
+# get current user's listings in profile/listings
 @router.get(
     "/my-listings",
-    response_model=List[ListingCardDetails],
+    response_model=List[ListingCardProfile],
     summary="Get current user's listings",
     description="Fetch all listings created by the current user.",
 )
@@ -112,12 +112,41 @@ async def get_my_listings(
     user: User = Depends(get_user_db),
 ):
     # return only posted listings that are not removed
-    
-    
+    result = await session.exec(
+        select(Listing)
+        .where(Listing.seller_id == user.id)
+        .where(Listing.listing_status != ListingStatus.REMOVED)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+        )
+    )
 
-# listings = await session.exec(select(Listing).where(Listing.seller_id == user.id))
+    listings = result.scalars().all()
+    return listings
 
-# return listings.scalars().all()
+
+# TODO: MOVE THIS TO SERVICE CLASS
+async def calculate_seller_rating(
+    seller_id: int, session: AsyncSession
+) -> float | None:
+    """
+    Helper function to get the seller's rating.
+    """
+    # return None if seller has no reviews and round the rating to 2 decimal places if the seller has reviews
+    seller: User = await session.get(User, seller_id)
+    if not seller:
+        return None
+
+    if len(seller.reviews_received) == 0:
+        return None
+
+    return round(
+        sum(review.rating for review in seller.reviews_received)
+        / len(seller.reviews_received),
+        2,
+    )
 
 
 # get listings with specific categories, price, status, offer type, and (address)
@@ -130,7 +159,8 @@ async def get_my_listings(
 async def get_listings_by_params(
     *,
     session: AsyncSession = Depends(get_async_session),
-    params: getParameters,
+    user: User = Depends(get_user_db),
+    params: listingQueryParameters,
 ):
     # check that categories exists
     if params.category_ids:
@@ -151,26 +181,92 @@ async def get_listings_by_params(
 
     # build query
     query = select(Listing)
+    # Remove REMOVED & HIDDEN listings
+    query = query.where(Listing.listing_status == ListingStatus.ACTIVE)
+
     if params.category_ids:
         query = query.where(
             Listing.categories.any(Category.id.in_(params.category_ids))
         )
+    if params.offer_type:
+        query = query.where(Listing.offer_type == params.offer_type)
+    if params.listing_status:
+        query = query.where(Listing.listing_status == params.listing_status)
     if params.min_price:
         query = query.where(Listing.price >= params.min_price)
     if params.max_price:
         query = query.where(Listing.price <= params.max_price)
-    if params.listing_status:
-        query = query.where(Listing.listing_status == params.listing_status)
-    if params.offer_type:
-        query = query.where(Listing.offer_type == params.offer_type)
+    if params.min_rating:
+        query = query.where(Listing.rating >= params.min_rating)
 
+    # Searching:
+    if params.search:
+        query = query.where(Listing.title.ilike(f"%{params.search}%"))
+
+    # Sorting:
+    # TODO: sort by updated_at, price, rating, location
+    sort_columns = {
+        "created_at": Listing.created_at,
+        "updated_at": Listing.updated_at,
+        "price": Listing.price,
+        # "rating": will be done through code
+    }
+
+    if params.sort_order == "asc":
+        query = query.order_by(
+            asc(sort_columns.get(params.sort_by, Listing.updated_at))
+        )
+    else:
+        query = query.order_by(
+            desc(sort_columns.get(params.sort_by, Listing.updated_at))
+        )
+
+    # Limiting:
     query = query.limit(params.limit)
     query = query.offset(params.offset)
 
-    listings = await session.execute(query)
-    listings = listings.scalars().all()
+    listings = await session.exec(query)
+    listings = listings.all()
 
-    return listings
+    output_listings: List[ListingCardDetails] = []
+
+    seller_review_dict = {}
+    for listing in listings:
+        if listing.seller_id not in seller_review_dict:
+            seller_review_dict[listing.seller.id] = await calculate_seller_rating(
+                listing.seller_id, session=session
+            )
+
+    if params.sort_by == "rating":
+        listings.sort(
+            key=lambda listing: seller_review_dict.get(listing.seller_id) or 0,
+            reverse=params.sort_order == "desc",
+        )
+
+    for listing in listings:
+        output_listings.append(
+            ListingCardDetails(
+                id=listing.id,
+                title=listing.title,
+                description=listing.description,
+                price=listing.price,
+                listing_status=listing.listing_status,
+                offer_type=listing.offer_type,
+                liked=user.favorite_listings.get(listing.id, False),
+                seller=SellerInfoCard(
+                    id=listing.seller.id,
+                    firstname=listing.seller.firstname,
+                    lastname=listing.seller.lastname,
+                    rating=seller_review_dict.get(listing.seller_id),
+                ),
+                address=listing.address,
+                categories=listing.categories,
+                created_at=listing.created_at,
+                updated_at=listing.updated_at,
+            )
+        )
+
+    return output_listings
 
 
 # get specific listing by id
@@ -184,20 +280,18 @@ async def get_listing(
     *,
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_user_db),
 ):
-    result = await session.execute(
+    result = await session.exec(
         select(Listing)
         .where(Listing.id == listing_id)
         .options(
             selectinload(Listing.address),
             selectinload(Listing.categories),
             selectinload(Listing.seller),
-            # selectinload(Listing.favorite_by),
-            # selectinload(Listing.renters),
-            # selectinload(Listing.buyer),
         )
     )
-    listing = result.scalar_one_or_none()
+    listing = result.one_or_none()
 
     if not listing:
         raise HTTPException(
@@ -212,7 +306,29 @@ async def get_listing(
             detail=f"Listing with ID {listing_id} has been removed.",
         )
 
-    return listing
+    seller_rating = await calculate_seller_rating(listing.seller_id, session=session)
+
+    output_listing = ListingCardDetails(
+        id=listing.id,
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        listing_status=listing.listing_status,
+        offer_type=listing.offer_type,
+        liked=user.favorite_listings.get(listing.id, False),
+        seller=SellerInfoCard(
+            id=listing.seller.id,
+            firstname=listing.seller.firstname,
+            lastname=listing.seller.lastname,
+            rating=seller_rating,
+        ),
+        address=listing.address,
+        categories=listing.categories,
+        created_at=listing.created_at,
+        updated_at=listing.updated_at,
+    )
+
+    return output_listing
 
 
 # update listing
@@ -227,7 +343,7 @@ async def update_listing(
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
     updated_listing_data: ListingUpdate,
-    user: User = Depends(get_user),
+    user: User = Depends(get_user_db),
 ):
     # check that listing exists
     listing = await session.get(Listing, listing_id)
@@ -237,7 +353,6 @@ async def update_listing(
             detail=f"Listing with ID {listing_id} not found.",
         )
 
-    # TODO: !!!!CHECK USER ONLY THROUGH EMAIL!!!!!
     # check that user is logged in and is the seller of the listing
     if user.id != listing.seller_id:
         raise HTTPException(
@@ -293,6 +408,7 @@ async def delete_listing(
     *,
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(get_user_db),
 ):
     # check that listing exists
     listing = await session.get(Listing, listing_id)
@@ -300,6 +416,13 @@ async def delete_listing(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Listing with ID {listing_id} not found.",
+        )
+
+    # check that user is logged in and is the seller of the listing
+    if user.id != listing.seller_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to update this listing.",
         )
 
     # set listing status to removed
