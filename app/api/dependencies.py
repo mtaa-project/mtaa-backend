@@ -2,8 +2,8 @@ from typing import Any, AsyncGenerator
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models.user_model import User
 
@@ -33,7 +33,7 @@ async def get_user_db(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated."
         )
 
-    result = await session.exec(select(User).where(User.email == email))
+    result = await session.execute(select(User).where(User.email == email))
     db_user = result.one()
 
     if not db_user:
