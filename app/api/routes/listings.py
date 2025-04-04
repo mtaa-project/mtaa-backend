@@ -20,7 +20,7 @@ from app.schemas.listing_schema import (
     listingQueryParameters,
 )
 
-router = APIRouter(prefix="/listings")
+router = APIRouter(prefix="/listings", tags=["listings"])
 
 
 # async def get_listing_from_db(listing_id: int, session: AsyncSession) -> Listing:
