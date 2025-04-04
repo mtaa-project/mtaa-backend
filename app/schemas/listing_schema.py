@@ -15,6 +15,7 @@ from app.models.enums.offer_type import OfferType
 class SellerInfoCard(SQLModel):
     id: int
     firstname: str
+    lastname: str
     rating: float | None = None
 
 
@@ -38,6 +39,17 @@ class ListingBase(SQLModel):
     price: Decimal
     listing_status: ListingStatus
     offer_type: OfferType
+
+
+# Schema for displaying users own listing data in Profile
+class ListingCardProfile(ListingBase):
+    id: int
+    description: str
+
+    # extra information for listing cards that can be used to display in profile
+    address: Address
+    created_at: datetime
+    updated_at: datetime
 
 
 # Schema for displaying listing data in medium and big cards
@@ -70,22 +82,30 @@ class ListingCreate(ListingBase):
     category_ids: list[int]  # list of category ids
 
 
-# # schema for listing update
-# class ListingUpdate(SQLModel):
-#     title: str | None = None
-#     description: str | None = None
-#     price: Decimal | None = None
-#     listing_status: ListingStatus | None = None
-#     offer_type: OfferType | None = None
-#     address_id: int | None = None
-#     category_ids: list[int] | None = None
+# schema for listing update
+class ListingUpdate(SQLModel):
+    title: str | None = None
+    description: str | None = None
+    price: Decimal | None = None
+    listing_status: ListingStatus | None = None
+    offer_type: OfferType | None = None
+    address_id: int | None = None
+    category_ids: list[int] | None = None
 
 
-# class getParameters(SQLModel):
-#     limit: int = 10
-#     offset: int = 0
-#     listing_status: ListingStatus | None = None
-#     offer_type: OfferType | None = None
-#     category_ids: List[int] | None = None
-#     min_price: int | None = None
-#     max_price: int | None = None
+class listingQueryParameters(SQLModel):
+    limit: int = 10
+    offset: int = 0
+    category_ids: List[int] | None = None
+    offer_type: OfferType  # filter by offer type: RENT, SELL (BOTH is NOT supported)
+    listing_status: ListingStatus = ListingStatus.ACTIVE
+    min_price: int | None = None
+    max_price: int | None = None
+    min_rating: float | None = None
+
+    # sort by options
+    sort_by: str = "created_at"  # updated_at, price, rating, location
+    sort_order: str = "desc"  # asc, desc
+    search: str | None = None
+    search_location: str | None = None
+    search_radius: int | None = None
