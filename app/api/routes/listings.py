@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import asc, desc, select
 
-from app.api.dependencies import get_async_session, get_user, get_user_db
+from app.api.dependencies import GetUserDB, get_async_session
 from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
@@ -58,7 +58,7 @@ async def create_listing(
     *,
     new_listing_data: ListingCreate,
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_user_db),
+    user: User = Depends(GetUserDB()),
 ):
     # check that address exists
     if new_listing_data.address_id:
@@ -101,6 +101,8 @@ async def create_listing(
     return new_listing
 
 
+# TESTED for getting listings of user that has listings
+# TODO: add test for user that has no listings
 # get current user's listings in profile/listings
 @router.get(
     "/my-listings",
@@ -111,7 +113,7 @@ async def create_listing(
 async def get_my_listings(
     *,
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_user_db),
+    user: User = Depends(GetUserDB()),
 ):
     # return only posted listings that are not removed
     result = await session.execute(
@@ -167,7 +169,7 @@ async def calculate_seller_rating(
 async def get_listings_by_params(
     *,
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_user_db),
+    user: User = Depends(GetUserDB(preload=["favorite_listings"])),
     params: listingQueryParameters,
 ):
     # check that categories exists
@@ -180,12 +182,12 @@ async def get_listings_by_params(
                     detail=f"Category with ID {category_id} not found.",
                 )
 
-    #     # LISTING STATUS FROM FRONTEND CANNOT BE REMOVED
-    #     if params.listing_status == ListingStatus.REMOVED:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_400_BAD_REQUEST,
-    #             detail="Listing status cannot be REMOVED when filtering listings.",
-    #         )
+    # LISTING STATUS FROM FRONTEND CANNOT BE REMOVED
+    if params.listing_status == ListingStatus.REMOVED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Listing status cannot be REMOVED when filtering listings.",
+        )
 
     # build query
     query = select(Listing)
@@ -233,8 +235,8 @@ async def get_listings_by_params(
     query = query.limit(params.limit)
     query = query.offset(params.offset)
 
-    #     listings = await session.execute(query)
-    #     listings = listings.scalars().all()
+    listings = await session.execute(query)
+    listings = listings.scalars().all()
 
     output_listings: List[ListingCardDetails] = []
 
@@ -251,6 +253,8 @@ async def get_listings_by_params(
             reverse=params.sort_order == "desc",
         )
 
+    favorites_dict = {fav.listing_id: fav for fav in user.favorite_listings}
+
     for listing in listings:
         output_listings.append(
             ListingCardDetails(
@@ -260,7 +264,7 @@ async def get_listings_by_params(
                 price=listing.price,
                 listing_status=listing.listing_status,
                 offer_type=listing.offer_type,
-                liked=user.favorite_listings.get(listing.id, False),
+                liked=listing.id in favorites_dict,
                 seller=SellerInfoCard(
                     id=listing.seller.id,
                     firstname=listing.seller.firstname,
@@ -277,6 +281,7 @@ async def get_listings_by_params(
     return output_listings
 
 
+# TESTED for getting specific listing by id
 # get specific listing by id
 @router.get(
     "/{listing_id}",
@@ -288,7 +293,7 @@ async def get_listing(
     *,
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
-    user=Depends(get_user_db),
+    user=Depends(GetUserDB()),
 ):
     result = await session.execute(
         select(Listing)
@@ -301,18 +306,18 @@ async def get_listing(
     )
     listing = result.scalars().one_or_none()
 
-    #     if not listing:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_404_NOT_FOUND,
-    #             detail=f"Listing with ID {listing_id} not found.",
-    #         )
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} not found.",
+        )
 
-    #     # check that listing is not removed
-    #     if listing.listing_status == ListingStatus.REMOVED:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_404_NOT_FOUND,
-    #             detail=f"Listing with ID {listing_id} has been removed.",
-    #         )
+    # check that listing is not removed
+    if listing.listing_status == ListingStatus.REMOVED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} has been removed.",
+        )
 
     seller_rating = await calculate_seller_rating(listing.seller_id, session)
 
@@ -358,7 +363,7 @@ async def update_listing(
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
     updated_listing_data: ListingUpdate,
-    user: User = Depends(get_user_db),
+    user: User = Depends(GetUserDB()),
 ):
     # check that listing exists
     listing = await session.get(Listing, listing_id)
@@ -424,7 +429,7 @@ async def delete_listing(
     *,
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_user_db),
+    user: User = Depends(GetUserDB()),
 ):
     # check that listing exists
     listing = await session.get(Listing, listing_id)
@@ -449,4 +454,4 @@ async def delete_listing(
     return listing
 
 
-# # TODO: make more routes for listing and make them more personalized, and personalized response scheme for every route
+# TODO: make more routes for listing and make them more personalized, and personalized response scheme for every route
