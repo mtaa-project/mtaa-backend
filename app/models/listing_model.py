@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import TIMESTAMP, Column
+from sqlalchemy import TIMESTAMP, Column, func
 from sqlmodel import Field, Relationship, SQLModel
 
 from app.models.rent_listing_model import RentListing
@@ -35,8 +35,15 @@ class Listing(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(TIMESTAMP(timezone=True), nullable=False),
     )
-    updated_at: datetime | None = None
-
+    updated_at: Optional[datetime] = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(
+            TIMESTAMP(timezone=True),
+            nullable=True,
+            server_default=func.now(),
+            onupdate=func.now(),
+        ),
+    )
     # Foreign keys
     seller_id: int = Field(foreign_key="users.id")
     address_id: int | None = Field(foreign_key="addresses.id")
