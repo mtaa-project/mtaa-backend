@@ -25,7 +25,7 @@ LISTINGS_PER_USER = 20
 
 async def seed_users_with_all_data():
     async with async_session() as session:
-        # 1) Seed používateľov
+        # 1) Seed users
         users = []
         for _ in range(NUM_USERS):
             user = User(
@@ -40,11 +40,11 @@ async def seed_users_with_all_data():
         await session.commit()
         print(f"✅ Seeded {NUM_USERS} users")
 
-        # Refresh používateľov, aby sme mali ich ID
+        # Refresh users to get their IDs
         for user in users:
             await session.refresh(user)
 
-        # 2) Každému používateľovi priradíme primárnu adresu
+        # 2) Assign a primary address to each user
         user_addresses = {}
         for user in users:
             address = Address(
@@ -65,7 +65,7 @@ async def seed_users_with_all_data():
         for address in user_addresses.values():
             await session.refresh(address)
 
-        # 3) Recenzie (reviews) pre každého používateľa
+        # 3) Reviews for each user
         reviews = []
         for reviewer in users:
             num_reviews = random.randint(1, MAX_REVIEWS_PER_USER)
@@ -84,20 +84,20 @@ async def seed_users_with_all_data():
         await session.commit()
         print(f"📝 Seeded {len(reviews)} user reviews")
 
-        # 4) Načítaj existujúce kategórie (založené iným seederom)
+        # 4) Load existing categories (created by another seeder)
         result = await session.execute(select(Category))
         categories: list[Category] = result.scalars().all()
         if not categories:
-            print("⚠️  Neboli nájdené žiadne kategórie. Spusti najprv seeder kategórií.")
+            print("⚠️  No categories found. Run the category seeder first.")
             return
 
-        # 5) Generovanie listings
+        # 5) Generate listings
         listings_count = 0
         for user in users:
             for _ in range(LISTINGS_PER_USER):
-                # Vyber náhodný OfferType
+                # Select a random OfferType
                 offer_type = random.choice(list(OfferType))
-                # Vytvor listing
+                # Create a listing
                 listing = Listing(
                     title=fake.sentence(nb_words=6),
                     description=fake.paragraph(nb_sentences=3),
@@ -105,29 +105,29 @@ async def seed_users_with_all_data():
                     offer_type=offer_type,
                     seller_id=user.id,
                     address_id=user_addresses[user.id].id,
-                    # listing_status ostáva ACTIVE defaultne
+                    # listing_status remains ACTIVE by default
                 )
                 session.add(listing)
                 await session.flush()
 
-                # Potrebujeme flush, aby listing.id bolo k dispozícii
+                # We need to flush so that listing.id is available
 
-                # Priradíme jednu náhodnú kategóriu (alebo môžeš dať aj viac)
+                # Assign one random category (or you can assign more)
                 random_category = random.choice(categories)
                 # listing.categories = [random_category]
 
-                # Ak je to SALE alebo BOTH, 50% šanca, že listing bude "predaný"
+                # If it's SALE or BOTH, 50% chance the listing will be "sold"
                 if offer_type in [OfferType.SELL, OfferType.BOTH]:
                     if random.random() < 0.5:
                         buyer = random.choice(users)
                         sale_entry = SaleListing(
                             listing_id=listing.id,
                             buyer_id=buyer.id,
-                            # sold_date default => datetime.now(UTC), alebo custom
+                            # sold_date default => datetime.now(UTC), or custom
                         )
                         session.add(sale_entry)
 
-                # Ak je to RENT alebo BOTH, 50% šanca, že listing bude "prenajatý"
+                # If it's RENT or BOTH, 50% chance the listing will be "rented"
                 if offer_type in [OfferType.LEND, OfferType.BOTH]:
                     if random.random() < 0.5:
                         renter = random.choice(users)
@@ -142,7 +142,9 @@ async def seed_users_with_all_data():
                 listings_count += 1
 
         await session.commit()
-        print(f"🏷️ Seeded {listings_count} listings (cca {LISTINGS_PER_USER} per user)")
+        print(
+            f"🏷️ Seeded {listings_count} listings (approx. {LISTINGS_PER_USER} per user)"
+        )
 
 
 if __name__ == "__main__":
