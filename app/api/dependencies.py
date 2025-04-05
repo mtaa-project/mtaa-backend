@@ -1,8 +1,9 @@
-from typing import Any, AsyncGenerator
+from typing import Any, AsyncGenerator, List
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.models.user_model import User
@@ -25,7 +26,9 @@ async def get_user(request: Request):
 
 
 async def get_user_db(
-    session: AsyncSession = Depends(get_async_session), user: Any = Depends(get_user)
+    session: AsyncSession = Depends(get_async_session),
+    user: Any = Depends(get_user),
+    preload: List[str] | None = None,
 ) -> User:
     email = user.get("email")
     if not email:
@@ -33,7 +36,14 @@ async def get_user_db(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated."
         )
 
-    result = await session.execute(select(User).where(User.email == email))
+    query = select(User).where(User.email == email)
+
+    # Preload related relationships if specified
+    if preload:
+        for relation in preload:
+            query = query.options(selectinload(getattr(User, relation)))
+
+    result = await session.execute(query)
     db_user = result.scalars().one_or_none()
 
     if not db_user:
