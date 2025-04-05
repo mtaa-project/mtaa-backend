@@ -180,12 +180,12 @@ async def get_listings_by_params(
                     detail=f"Category with ID {category_id} not found.",
                 )
 
-    # LISTING STATUS FROM FRONTEND CANNOT BE REMOVED
-    if params.listing_status == ListingStatus.REMOVED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Listing status cannot be REMOVED when filtering listings.",
-        )
+    #     # LISTING STATUS FROM FRONTEND CANNOT BE REMOVED
+    #     if params.listing_status == ListingStatus.REMOVED:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_400_BAD_REQUEST,
+    #             detail="Listing status cannot be REMOVED when filtering listings.",
+    #         )
 
     # build query
     query = select(Listing)
@@ -233,8 +233,8 @@ async def get_listings_by_params(
     query = query.limit(params.limit)
     query = query.offset(params.offset)
 
-    listings = await session.execute(query)
-    listings = listings.scalars().all()
+    #     listings = await session.execute(query)
+    #     listings = listings.scalars().all()
 
     output_listings: List[ListingCardDetails] = []
 
@@ -301,18 +301,18 @@ async def get_listing(
     )
     listing = result.scalars().one_or_none()
 
-    if not listing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Listing with ID {listing_id} not found.",
-        )
+    #     if not listing:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_404_NOT_FOUND,
+    #             detail=f"Listing with ID {listing_id} not found.",
+    #         )
 
-    # check that listing is not removed
-    if listing.listing_status == ListingStatus.REMOVED:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Listing with ID {listing_id} has been removed.",
-        )
+    #     # check that listing is not removed
+    #     if listing.listing_status == ListingStatus.REMOVED:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_404_NOT_FOUND,
+    #             detail=f"Listing with ID {listing_id} has been removed.",
+    #         )
 
     seller_rating = await calculate_seller_rating(listing.seller_id, session)
 
@@ -375,41 +375,42 @@ async def update_listing(
             detail="You are not authorized to update this listing.",
         )
 
-    # check that address exists
-    if updated_listing_data.address_id:
-        address = await session.get(Address, updated_listing_data.address_id)
-        if not address:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Address with ID {updated_listing_data.address_id} not found.",
-            )
 
-        listing.address = address
+#     # check that address exists
+#     if updated_listing_data.address_id:
+#         address = await session.get(Address, updated_listing_data.address_id)
+#         if not address:
+#             raise HTTPException(
+#                 status_code=status.HTTP_404_NOT_FOUND,
+#                 detail=f"Address with ID {updated_listing_data.address_id} not found.",
+#             )
 
-    # check that categories exist
-    if updated_listing_data.category_ids:
-        category_objs = []
-        for category_id in updated_listing_data.category_ids:
-            category = await session.get(Category, category_id)
-            if not category:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Category with ID {category_id} not found.",
-                )
-            category_objs.append(category)
+#         listing.address = address
 
-        listing.categories = category_objs
+#     # check that categories exist
+#     if updated_listing_data.category_ids:
+#         category_objs = []
+#         for category_id in updated_listing_data.category_ids:
+#             category = await session.get(Category, category_id)
+#             if not category:
+#                 raise HTTPException(
+#                     status_code=status.HTTP_404_NOT_FOUND,
+#                     detail=f"Category with ID {category_id} not found.",
+#                 )
+#             category_objs.append(category)
 
-    # update listing instance
-    update_data = updated_listing_data.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(listing, key, value)
+#         listing.categories = category_objs
 
-    # add listing to DB session
-    session.add(listing)
-    await session.commit()
-    await session.refresh(listing)
-    return listing
+#     # update listing instance
+#     update_data = updated_listing_data.model_dump(exclude_unset=True)
+#     for key, value in update_data.items():
+#         setattr(listing, key, value)
+
+#     # add listing to DB session
+#     session.add(listing)
+#     await session.commit()
+#     await session.refresh(listing)
+#     return listing
 
 
 # delete listing
@@ -448,4 +449,4 @@ async def delete_listing(
     return listing
 
 
-# TODO: make more routes for listing and make them more personalized, and personalized response scheme for every route
+# # TODO: make more routes for listing and make them more personalized, and personalized response scheme for every route
