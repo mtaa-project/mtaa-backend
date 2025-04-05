@@ -21,7 +21,7 @@ async def seed_categories():
             result = await session.execute(
                 select(Category).where(Category.id == cat["id"])
             )
-            existing = result.first()
+            existing = result.scalar_one_or_none()
 
             if existing:
                 print(f"Category with ID {cat['id']} already exists: {existing.name}")
