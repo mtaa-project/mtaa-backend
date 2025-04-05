@@ -23,13 +23,14 @@ async def seed_users_with_all_data():
             users.append(user)
             session.add(user)
 
-        user = User(
+        default_user = User(
             firstname="Peter",
             lastname="Griffin",
-            email="peter@griffin.com",
+            email="peter@gmail.com",
             phone_number=fake.phone_number(),
         )
-        users.append(user)
+        users.append(default_user)
+        session.add(default_user)
 
         await session.commit()
         print(f"Seeded {NUM_USERS} users")
