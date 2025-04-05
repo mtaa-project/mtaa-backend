@@ -1,17 +1,11 @@
 import asyncio
-import random
-from decimal import Decimal
 
 from faker import Faker
 from sqlmodel import select
 
 from app.db.database import async_session
 from app.models.address_model import Address
-from app.models.category_model import Category
-from app.models.enums.offer_type import OfferType
-from app.models.listing_model import Listing
 from app.models.user_model import User
-from app.models.user_review_model import UserReview
 
 fake = Faker()
 
