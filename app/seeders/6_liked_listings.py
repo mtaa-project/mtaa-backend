@@ -8,6 +8,9 @@ from app.db.database import async_session
 from app.models.listing_model import Listing
 from app.models.user_model import User
 
+PER_USER_MIN_LISTING_COUNT = 0
+PER_USER_MAX_LISTING_COUNT = 15
+
 
 async def seed_users_favorite_listings_with_relationship():
     async with async_session() as session:
@@ -36,7 +39,10 @@ async def seed_users_favorite_listings_with_relationship():
                 continue
 
             # Randomly decide how many listings the user will like (0 to 15, but no more than available)
-            num_favorites = random.randint(0, min(15, len(candidate_listings)))
+            num_favorites = random.randint(
+                PER_USER_MIN_LISTING_COUNT,
+                min(PER_USER_MAX_LISTING_COUNT, len(candidate_listings)),
+            )
             # Randomly select unique listings from the candidate list
             selected_listings = random.sample(candidate_listings, num_favorites)
 
