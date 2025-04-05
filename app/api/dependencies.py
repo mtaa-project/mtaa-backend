@@ -2,7 +2,7 @@ from typing import Any, AsyncGenerator
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import select
 
 from app.models.user_model import User
@@ -34,7 +34,7 @@ async def get_user_db(
         )
 
     result = await session.execute(select(User).where(User.email == email))
-    db_user = result.one()
+    db_user = result.scalars().one_or_none()
 
     if not db_user:
         raise HTTPException(

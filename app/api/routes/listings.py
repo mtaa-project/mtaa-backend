@@ -1,9 +1,9 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import asc, desc, select
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.dependencies import get_async_session, get_user_db
 from app.models.address_model import Address
@@ -112,7 +112,7 @@ async def get_my_listings(
     user: User = Depends(get_user_db),
 ):
     # return only posted listings that are not removed
-    result = await session.exec(
+    result = await session.execute(
         select(Listing)
         .where(Listing.seller_id == user.id)
         .where(Listing.listing_status != ListingStatus.REMOVED)
@@ -135,18 +135,26 @@ async def calculate_seller_rating(
     Helper function to get the seller's rating.
     """
     # return None if seller has no reviews and round the rating to 2 decimal places if the seller has reviews
-    seller: User = await session.get(User, seller_id)
+    statement = (
+        select(User)
+        .where(User.id == seller_id)
+        .options(selectinload(User.reviews_received))
+    )
+    print("ahoj")
+    result = await session.execute(statement)
+
+    seller: User | None = result.scalars().one_or_none()
+
     if not seller:
         return None
 
     if len(seller.reviews_received) == 0:
         return None
 
-    return round(
-        sum(review.rating for review in seller.reviews_received)
-        / len(seller.reviews_received),
-        2,
-    )
+    return seller
+    rating_total = sum(review.rating for review in seller.reviews_received)
+    average_rating = round(rating_total / len(seller.reviews_received), 2)
+    return average_rating
 
 
 # get listings with specific categories, price, status, offer type, and (address)
@@ -225,8 +233,8 @@ async def get_listings_by_params(
     query = query.limit(params.limit)
     query = query.offset(params.offset)
 
-    listings = await session.exec(query)
-    listings = listings.all()
+    listings = await session.execute(query)
+    listings = listings.scalars().all()
 
     output_listings: List[ListingCardDetails] = []
 
@@ -272,7 +280,7 @@ async def get_listings_by_params(
 # get specific listing by id
 @router.get(
     "/{listing_id}",
-    response_model=ListingCardDetails,
+    # response_model=ListingCardDetails,
     summary="Get a listing by ID",
     description="Fetch a specific listing by ID unless its status is REMOVED.",
 )
@@ -280,18 +288,29 @@ async def get_listing(
     *,
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
-    user: User = Depends(get_user_db),
+    # user: User = Depends(get_user_db),
 ):
-    result = await session.exec(
+    # result = await session.execute(
+    #     select(Listing)
+    #     .where(Listing.id == listing_id)
+    #     .options(
+    #         selectinload(Listing.address),
+    #         selectinload(Listing.categories),
+    #         selectinload(Listing.seller),
+    #     )
+    # )
+    # listing = result.scalar()
+
+    result = await session.execute(
         select(Listing)
-        .where(Listing.id == listing_id)
         .options(
             selectinload(Listing.address),
             selectinload(Listing.categories),
             selectinload(Listing.seller),
         )
+        .where(Listing.id == listing_id)
     )
-    listing = result.one_or_none()
+    listing = result.scalars().one_or_none()
 
     if not listing:
         raise HTTPException(
@@ -306,7 +325,8 @@ async def get_listing(
             detail=f"Listing with ID {listing_id} has been removed.",
         )
 
-    seller_rating = await calculate_seller_rating(listing.seller_id, session=session)
+    seller_rating = await calculate_seller_rating(listing.seller_id, session)
+    return listing
 
     output_listing = ListingCardDetails(
         id=listing.id,

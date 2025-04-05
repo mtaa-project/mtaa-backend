@@ -34,7 +34,7 @@ class User(SQLModel, table=True):
 
     reviews_received: List["UserReview"] = Relationship(
         back_populates="reviewee",
-        sa_relationship_kwargs={"foreign_keys": "[UserReview.reviewee_id]"},
+        sa_relationship_kwargs={"foreign_keys": "UserReview.reviewee_id"},
     )
 
     search_alerts: List["UserSearchAlert"] = Relationship(
