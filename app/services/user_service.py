@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +7,18 @@ from sqlmodel import select
 
 from app.api.dependencies import get_async_session
 from app.models.user_model import User
+
+AllowedUserDependencies = Literal[
+    "reviews_written",
+    "reviews_received",
+    "search_alerts",
+    "addresses",
+    "favorite_listings",
+    "posted_listings",
+    "purchased_listings",
+    "rented_listings",
+]
+DependenciesList = Optional[List[AllowedUserDependencies]]
 
 
 class UserService:
@@ -24,7 +36,7 @@ class UserService:
             )
 
     async def get_user_by_email(
-        self, email: Optional[str] = None, dependencies: Optional[List[str]] = None
+        self, email: Optional[str] = None, dependencies: DependenciesList = None
     ) -> User:
         # returns email or None
         email = email or self.user_metadata.get("email")
@@ -49,7 +61,7 @@ class UserService:
             )
         return db_user
 
-    async def get_user(self, dependencies: Optional[List[str]] = None) -> User:
+    async def get_user(self, dependencies: DependenciesList = None) -> User:
         """
         Retrieve the user using the email stored in the request state.
         You can optionally provide a list of relationships to be preloaded.
