@@ -1,14 +1,16 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import EmailStr
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import asc, desc, select
 
-from app.api.dependencies import get_async_session, get_user_db
+from app.api.dependencies import get_async_session, get_user, get_user_db
 from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
+from app.models.favorite_listing_model import FavoriteListing
 from app.models.listing_model import Listing
 from app.models.user_model import User
 from app.schemas.listing_schema import (
@@ -140,9 +142,8 @@ async def calculate_seller_rating(
         .where(User.id == seller_id)
         .options(selectinload(User.reviews_received))
     )
-    print("ahoj")
-    result = await session.execute(statement)
 
+    result = await session.execute(statement)
     seller: User | None = result.scalars().one_or_none()
 
     if not seller:
@@ -151,7 +152,6 @@ async def calculate_seller_rating(
     if len(seller.reviews_received) == 0:
         return None
 
-    return seller
     rating_total = sum(review.rating for review in seller.reviews_received)
     average_rating = round(rating_total / len(seller.reviews_received), 2)
     return average_rating
@@ -288,19 +288,8 @@ async def get_listing(
     *,
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
-    # user: User = Depends(get_user_db),
+    user=Depends(get_user_db),
 ):
-    # result = await session.execute(
-    #     select(Listing)
-    #     .where(Listing.id == listing_id)
-    #     .options(
-    #         selectinload(Listing.address),
-    #         selectinload(Listing.categories),
-    #         selectinload(Listing.seller),
-    #     )
-    # )
-    # listing = result.scalar()
-
     result = await session.execute(
         select(Listing)
         .options(
@@ -326,7 +315,13 @@ async def get_listing(
         )
 
     seller_rating = await calculate_seller_rating(listing.seller_id, session)
-    return listing
+
+    query_is_favorite_listing = select(FavoriteListing).where(
+        FavoriteListing.user_id == user.id, FavoriteListing.listing_id == listing.id
+    )
+    fav_listing_result = await session.execute(query_is_favorite_listing)
+    fav_listing_result = fav_listing_result.scalars().one_or_none()
+    fav_listing_result = fav_listing_result is not None
 
     output_listing = ListingCardDetails(
         id=listing.id,
@@ -335,7 +330,7 @@ async def get_listing(
         price=listing.price,
         listing_status=listing.listing_status,
         offer_type=listing.offer_type,
-        liked=user.favorite_listings.get(listing.id, False),
+        liked=fav_listing_result,
         seller=SellerInfoCard(
             id=listing.seller.id,
             firstname=listing.seller.firstname,

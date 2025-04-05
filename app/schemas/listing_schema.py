@@ -66,7 +66,7 @@ class ListingCard(ListingBase):
     address: Address
     categories: list["Category"]  # list of category ids
     created_at: datetime
-    updated_at: datetime
+    updated_at: datetime | None
 
 
 # Schema for displaying listing data in medium and big cards
