@@ -55,35 +55,35 @@ async def get_user(request: Request):
 #     return db_user
 
 
-class GetUserDB:
-    def __init__(self, preload: Optional[List[str]] = None):
-        self.preload = preload or []
+# class GetUserDB:
+#     def __init__(self, preload: Optional[List[str]] = None):
+#         self.preload = preload or []
 
-    async def __call__(
-        self,
-        session: AsyncSession = Depends(get_async_session),
-        user: dict = Depends(get_user),
-    ) -> User:
-        email = user.get("email")
-        if not email:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not authenticated.",
-            )
+#     async def __call__(
+#         self,
+#         session: AsyncSession = Depends(get_async_session),
+#         user: dict = Depends(get_user),
+#     ) -> User:
+#         email = user.get("email")
+#         if not email:
+#             raise HTTPException(
+#                 status_code=status.HTTP_401_UNAUTHORIZED,
+#                 detail="User not authenticated.",
+#             )
 
-        query = select(User).where(User.email == email)
+#         query = select(User).where(User.email == email)
 
-        # Apply the specified relationships to preload
-        for relation in self.preload:
-            query = query.options(selectinload(getattr(User, relation)))
+#         # Apply the specified relationships to preload
+#         for relation in self.preload:
+#             query = query.options(selectinload(getattr(User, relation)))
 
-        result = await session.execute(query)
-        db_user = result.scalars().one_or_none()
+#         result = await session.execute(query)
+#         db_user = result.scalars().one_or_none()
 
-        if not db_user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found in the database.",
-            )
+#         if not db_user:
+#             raise HTTPException(
+#                 status_code=status.HTTP_404_NOT_FOUND,
+#                 detail="User not found in the database.",
+#             )
 
-        return db_user
+#         return db_user
