@@ -14,11 +14,6 @@ MAX_REVIEWS_PER_USER = 3
 LISTINGS_PER_USER = 20
 
 
-def get_fake_country_code() -> str:
-    # Vracia 2-písmenový kód, napríklad "US", "SK"
-    return fake.country_code(representation="alpha-2")
-
-
 async def seed_addresses():
     async with async_session() as session:
         result = await session.execute(select(User))

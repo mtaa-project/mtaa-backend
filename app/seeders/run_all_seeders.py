@@ -2,7 +2,7 @@ import subprocess
 
 
 def run_seeder(module_name: str):
-    print(f"\n🔄 Running seeder: {module_name}")
+    print(f"\n Running seeder: {module_name}")
     try:
         result = subprocess.run(
             ["python", "-m", module_name],

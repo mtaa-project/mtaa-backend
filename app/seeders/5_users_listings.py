@@ -29,10 +29,9 @@ async def seed_users_listings():
         result = await session.execute(select(Category))
         categories: list[Category] = result.scalars().all()
         if not categories:
-            print("⚠️  No categories found. Run the category seeder first.")
+            print("No categories found. Run the category seeder first.")
             return
 
-        # 5) Generate listings
         listings_count = 0
         for user in users:
             query = select(Address).where(
@@ -94,7 +93,7 @@ async def seed_users_listings():
 
         await session.commit()
         print(
-            f"🏷️ Seeded {listings_count} listings (approx. {LISTINGS_PER_USER} per user)"
+            f"Seeded {listings_count} listings (approx. {LISTINGS_PER_USER} per user)"
         )
 
 

@@ -12,7 +12,6 @@ NUM_USERS = 10
 
 async def seed_users_with_all_data():
     async with async_session() as session:
-        # 1) Seed users
         users = []
         for _ in range(NUM_USERS):
             user = User(
@@ -23,6 +22,14 @@ async def seed_users_with_all_data():
             )
             users.append(user)
             session.add(user)
+
+        user = User(
+            firstname="Peter",
+            lastname="Griffin",
+            email="peter@griffin.com",
+            phone_number=fake.phone_number(),
+        )
+        users.append(user)
 
         await session.commit()
         print(f"Seeded {NUM_USERS} users")
