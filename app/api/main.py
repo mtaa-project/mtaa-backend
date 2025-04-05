@@ -17,9 +17,6 @@ from app.seeders import seed_users
 security = HTTPBearer()
 app = FastAPI(dependencies=[Depends(security)])
 
-app.middleware("http")(authenticate_request)
-
-
 app.include_router(auth_route.router)
 app.include_router(users_route.router)
 app.include_router(listings.router)
