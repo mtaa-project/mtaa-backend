@@ -555,13 +555,21 @@ async def add_favorite(
     )
     listing = result.scalars().one_or_none()
 
-    if not listing:
+    if not listing or listing.listing_status == ListingStatus.REMOVED:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Listing with ID {listing_id} not found.",
         )
 
     current_user = await user_service.get_user(dependencies=["favorite_listings"])
+
+    # check that listing is not already in favorites
+    if listing in current_user.favorite_listings:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Listing with ID {listing_id} is already in your favorites.",
+        )
+
     current_user.favorite_listings.append(listing)
 
     response = ListingCardDetails(
@@ -572,7 +580,77 @@ async def add_favorite(
         listing_status=listing.listing_status,
         offer_type=listing.offer_type,
         liked=listing in current_user.favorite_listings,
-        # liked=True,
+        seller=SellerInfoCard(
+            id=listing.seller_id,
+            firstname=listing.seller.firstname,
+            lastname=listing.seller.lastname,
+            rating=await calculate_seller_rating(listing.seller_id, session),
+        ),
+        address=listing.address,
+        categories=listing.categories,
+        created_at=listing.created_at,
+        updated_at=listing.updated_at,
+    )
+
+    # add user to DB session
+    session.add(current_user)
+    await session.commit()
+    await session.refresh(current_user)
+
+    return response
+
+
+# remove listing from favorites
+@router.delete(
+    "/remove-favorite/{listing_id}",
+    response_model=ListingCardDetails,
+    summary="Remove a specific listing from users favorites",
+    description="Updates users favorite_listings relationship. You must provide valid listing ID",
+)
+async def remove_favorite(
+    *,
+    listing_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+):
+    # check that listing exists
+    result = await session.execute(
+        select(Listing)
+        .where(Listing.id == listing_id)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+        )
+    )
+    listing = result.scalars().one_or_none()
+
+    # check that listing exists
+    if not listing or listing.listing_status == ListingStatus.REMOVED:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} not found.",
+        )
+
+    current_user = await user_service.get_user(dependencies=["favorite_listings"])
+
+    # check that listing is in favorites
+    if listing not in current_user.favorite_listings:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} is not in your favorites.",
+        )
+
+    current_user.favorite_listings.remove(listing)
+
+    response = ListingCardDetails(
+        id=listing.id,
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        listing_status=listing.listing_status,
+        offer_type=listing.offer_type,
+        liked=False,
         seller=SellerInfoCard(
             id=listing.seller_id,
             firstname=listing.seller.firstname,
