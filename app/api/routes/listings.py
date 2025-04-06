@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,7 +9,6 @@ from app.api.dependencies import get_async_session
 from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
-from app.models.favorite_listing_model import FavoriteListing
 from app.models.listing_model import Listing
 from app.models.user_model import User
 from app.schemas.listing_schema import (
@@ -52,6 +50,7 @@ async def calculate_seller_rating(
 
 
 # TODO: change this so that pictures can be uploaded, change response model, and change ListingCreate schema to take pictures
+# TESTED for listing creation
 # create listing
 @router.post(
     "/",
