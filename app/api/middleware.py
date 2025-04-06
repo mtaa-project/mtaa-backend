@@ -1,10 +1,17 @@
+import os
+
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from firebase_admin import _apps, auth, credentials, initialize_app
 
-if not _apps:
-    cred = credentials.Certificate("mtaa-project-service-account.json")
-    firebase_app = initialize_app(cred)
+firebase_app = None
+
+
+def init_firebase():
+    global firebase_app
+    if not _apps and os.getenv("TESTING") != "1":
+        cred = credentials.Certificate("mtaa-project-service-account.json")
+        firebase_app = initialize_app(cred)
 
 
 async def authenticate_request(request: Request, call_next):
@@ -26,6 +33,9 @@ async def authenticate_request(request: Request, call_next):
             content="Invalid or missing authentication token",
         )
     try:
+        if os.environ["TESTING"] == "1":
+            return await call_next(request)
+
         user = auth.verify_id_token(token, firebase_app)
         request.state.user = user
         return await call_next(request)
