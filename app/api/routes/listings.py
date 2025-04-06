@@ -238,7 +238,7 @@ async def get_favorite_listings(
     summary="Get number of lent listings and sold listings",
     description="Fetch the number of lent and sold listings created by the current user.",
 )
-async def get_lent_listings(
+async def get_profile_statistics(
     *,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
