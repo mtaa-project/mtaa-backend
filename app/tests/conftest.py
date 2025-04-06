@@ -23,7 +23,7 @@ engine = create_async_engine(
 TestSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 
-async def override_get_async_session() -> AsyncSession:
+async def override_get_async_session() -> AsyncSession:  # type: ignore
     async with TestSessionLocal() as session:
         yield session
 
