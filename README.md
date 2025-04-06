@@ -51,3 +51,18 @@ python app/seeders/run_all_seeders.py
 ```
 
 This will execute all seeders in sequence, stopping if any seeder fails.
+
+
+## Running Tests
+
+Automated tests are located in the [`app/tests/`](./app/tests) directory. They are written using `pytest` and `pytest-asyncio`.
+
+### Run Tests with uv (recommended)
+
+```bash
+uv run pytest
+```
+
+### CI Integration
+Tests are automatically executed on push and pull requests to the main branch via GitHub Actions.
+You can find the workflow definition in [.github/workflows](.github/workflows/pytest.yml).
