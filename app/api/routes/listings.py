@@ -563,8 +563,8 @@ async def add_favorite(
 
     current_user = await user_service.get_user(dependencies=["favorite_listings"])
 
-    # check that listing is not already in favorites
-    if listing in current_user.favorite_listings:
+    # check if listing is already in favorites
+    if any(fav.id == listing.id for fav in current_user.favorite_listings):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Listing with ID {listing_id} is already in your favorites.",
@@ -635,8 +635,8 @@ async def remove_favorite(
 
     current_user = await user_service.get_user(dependencies=["favorite_listings"])
 
-    # check that listing is in favorites
-    if listing not in current_user.favorite_listings:
+    # check that listing is not in favorites
+    if not any(fav.id == listing.id for fav in current_user.favorite_listings):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Listing with ID {listing_id} is not in your favorites.",
