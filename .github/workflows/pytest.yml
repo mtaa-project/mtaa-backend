@@ -33,7 +33,7 @@ jobs:
           python-version-file: "pyproject.toml"
 
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --all-extras --dev -v
 
       - name: Run tests
         run: uv run pytest
