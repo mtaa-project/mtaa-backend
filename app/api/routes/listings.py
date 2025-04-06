@@ -162,6 +162,69 @@ async def get_my_listings(
     return listings
 
 
+# get favorite listings
+@router.get(
+    "/my-favorites",
+    response_model=List[ListingCardDetails],
+    summary="Get favorite listings of current user",
+    description="Fetch all favorite listings of the current user.",
+)
+async def get_favorite_listings(
+    *,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+):
+    current_user = await user_service.get_user(dependencies=["favorite_listings"])
+
+    # return only posted listings that are not removed
+    result = await session.execute(
+        select(Listing)
+        .where(Listing.favorite_by.any(User.id == current_user.id))
+        .where(Listing.listing_status != ListingStatus.REMOVED)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+            selectinload(Listing.favorite_by),
+        )
+    )
+
+    listings = result.scalars().all()
+
+    seller_review_dict = {}
+    for listing in listings:
+        if listing.seller_id not in seller_review_dict:
+            seller_review_dict[listing.seller_id] = await calculate_seller_rating(
+                listing.seller_id, session=session
+            )
+
+    output_listings: List[ListingCardDetails] = []
+    for listing in listings:
+        output_listings.append(
+            ListingCardDetails(
+                id=listing.id,
+                title=listing.title,
+                description=listing.description,
+                price=listing.price,
+                listing_status=listing.listing_status,
+                offer_type=listing.offer_type,
+                liked=True,
+                seller=SellerInfoCard(
+                    id=listing.seller.id,
+                    firstname=listing.seller.firstname,
+                    lastname=listing.seller.lastname,
+                    rating=seller_review_dict.get(listing.seller_id),
+                ),
+                address=listing.address,
+                categories=listing.categories,
+                created_at=listing.created_at,
+                updated_at=listing.updated_at,
+            )
+        )
+
+    return output_listings
+
+
 # TESTED for using limit, offset, offer_types, listing_status
 # get listings with specific categories, price, status, offer type, and (address)
 @router.get(
@@ -362,7 +425,7 @@ async def get_listing(
 # TESTED title, description, price, listing_status, offer)type, address_id, category_ids
 # update listing
 @router.put(
-    "/{listing_id}",
+    "/update/{listing_id}",
     response_model=ListingCardDetails,
     summary="Update an existing listing",
     description="Updates listing fields and category relationships. You must provide valid address/category IDs.",
@@ -469,7 +532,7 @@ async def update_listing(
 # TESTED removing
 # delete listing
 @router.delete(
-    "/{listing_id}",
+    "/delete/{listing_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft-delete a listing",
     description="Marks the listing as REMOVED. It will no longer be visible to users.",
@@ -503,6 +566,3 @@ async def delete_listing(
     await session.commit()
     await session.refresh(listing)
     return listing
-
-
-# TODO: make more routes for listing and make them more personalized, and personalized response scheme for every route
