@@ -33,7 +33,8 @@ async def authenticate_request(request: Request, call_next):
             content="Invalid or missing authentication token",
         )
     try:
-        if os.environ["TESTING"] == "1":
+        if os.environ.get("TESTING") == "1":
+            request.state.user = {"email": "test@example.com"}
             return await call_next(request)
 
         user = auth.verify_id_token(token, firebase_app)

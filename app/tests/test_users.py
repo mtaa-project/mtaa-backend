@@ -6,7 +6,7 @@ from app.tests.conftest import TestSessionLocal
 
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
-async def test_user():
+async def seed_data():
     async with TestSessionLocal() as session:
         user = User(firstname="Test", lastname="User", email="test@example.com")
         session.add(user)
