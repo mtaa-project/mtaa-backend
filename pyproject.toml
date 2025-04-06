@@ -15,7 +15,7 @@ dependencies = [
   "pydantic-settings>=2.8.1",
   "python-dotenv>=1.0.1",
   "python-multipart>=0.0.20",
-  "sqlmodel>=0.0.22",
+  "sqlmodel>=0.0.24",
 ]
 
 [dependency-groups]

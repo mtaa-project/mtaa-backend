@@ -66,8 +66,8 @@ async def seed_users_listings():
                 random_category = random.choice(categories)
                 # listing.categories = [random_category]
 
-                # If it's SALE or BOTH, 50% chance the listing will be "sold"
-                if offer_type in [OfferType.SELL, OfferType.BOTH]:
+                # If it's BUY or BOTH, 50% chance the listing will be "sold"
+                if offer_type in [OfferType.BUY, OfferType.BOTH]:
                     if random.random() < 0.5:
                         buyer = random.choice(users)
                         sale_entry = SaleListing(
@@ -78,7 +78,7 @@ async def seed_users_listings():
                         session.add(sale_entry)
 
                 # If it's RENT or BOTH, 50% chance the listing will be "rented"
-                if offer_type in [OfferType.LEND, OfferType.BOTH]:
+                if offer_type in [OfferType.RENT, OfferType.BOTH]:
                     if random.random() < 0.5:
                         renter = random.choice(users)
                         rent_entry = RentListing(
