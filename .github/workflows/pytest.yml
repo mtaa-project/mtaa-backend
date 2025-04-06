@@ -11,6 +11,12 @@ jobs:
   uv-example:
     name: python
     runs-on: ubuntu-latest
+    
+    env:
+      TESTING: "1"
+      DB_USER: "test"
+      DB_PASSWORD: "test"
+      DB_NAME: "test"
 
     steps:
       - uses: actions/checkout@v4
