@@ -46,8 +46,10 @@ async def prepare_database():
 
 
 @pytest_asyncio.fixture()
-async def async_client():
+async def async_client() -> AsyncClient:
+    headers = {"Authorization": "Bearer fake"}
+
     async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
+        transport=ASGITransport(app=app), base_url="http://test", headers=headers
     ) as client:
         yield client

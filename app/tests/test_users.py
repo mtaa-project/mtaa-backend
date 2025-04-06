@@ -16,9 +16,7 @@ async def seed_data():
 
 @pytest.mark.asyncio
 async def test_get_users(async_client):
-    response = await async_client.get(
-        "/users/", headers={"Authorization": "Bearer fake"}
-    )
+    response = await async_client.get("/users/")
 
     assert response.status_code == 200
     data = response.json()
