@@ -529,7 +529,7 @@ async def update_listing(
     return response
 
 
-# TESTED for adding existing listing to favorites
+# TESTED for adding listing to favorites and listing already in favorites and not existing
 # add listing to favorites
 @router.put(
     "/add-favorite/{listing_id}",
@@ -600,6 +600,7 @@ async def add_favorite(
     return response
 
 
+# TESTED for removing existing listing from favorites and listing not in favorites and not existing
 # remove listing from favorites
 @router.delete(
     "/remove-favorite/{listing_id}",
