@@ -93,7 +93,7 @@ class ListingUpdate(SQLModel):
     category_ids: list[int] | None = None
 
 
-class listingQueryParameters(SQLModel):
+class ListingQueryParameters(SQLModel):
     limit: int = 10
     offset: int = 0
     category_ids: List[int] | None = None
@@ -109,3 +109,8 @@ class listingQueryParameters(SQLModel):
     search: str | None = None
     search_location: str | None = None
     search_radius: int | None = None
+
+
+class ProfileStatistics(SQLModel):
+    total_lent: int = 0
+    total_sold: int = 0
