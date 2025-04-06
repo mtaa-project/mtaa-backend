@@ -24,4 +24,4 @@ jobs:
             python-version-file: "pyproject.toml"
 
         - name: Run tests
-          run: uv run pytest app/tests
+          run: uv run pytest
