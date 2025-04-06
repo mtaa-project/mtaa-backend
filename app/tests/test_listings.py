@@ -15,7 +15,7 @@ user = User(
     lastname="Seller",
     email="test@example.com",
 )
-a = 1
+
 address = Address(
     is_primary=True,
     visibility=True,

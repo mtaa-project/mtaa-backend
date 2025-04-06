@@ -1,15 +1,14 @@
 name: Run Pytest
 
-# on:
-#   push:
-#     branches: [ main ]
-#   pull_request:
-#     branches: [ main ]
-on: [push]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  uv-example:
-    name: python
+  test-backend:
+    name: Run backend tests
     runs-on: ubuntu-latest
 
     env:
