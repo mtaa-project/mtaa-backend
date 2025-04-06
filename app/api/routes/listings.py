@@ -638,7 +638,7 @@ async def remove_favorite(
     # check that listing is in favorites
     if listing not in current_user.favorite_listings:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Listing with ID {listing_id} is not in your favorites.",
         )
 
