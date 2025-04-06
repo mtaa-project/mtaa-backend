@@ -1,10 +1,10 @@
 name: Run Pytest
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+on: [push]
+  # push:
+  #   branches: [ main ]
+  # pull_request:
+  #   branches: [ main ]
 
 jobs:
   test-backend:
@@ -13,9 +13,9 @@ jobs:
 
     env:
       TESTING: "1"
-      DB_USER: "test"
-      DB_PASSWORD: "test"
-      DB_NAME: "test"
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_NAME: ${{ secrets.DB_NAME }}
 
     steps:
       - uses: actions/checkout@v4
