@@ -10,14 +10,16 @@ from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.listing_model import Listing
+from app.models.rent_listing_model import RentListing
 from app.models.user_model import User
 from app.schemas.listing_schema import (
     ListingCardDetails,
     ListingCardProfile,
     ListingCreate,
+    ListingQueryParameters,
     ListingUpdate,
+    ProfileStatistics,
     SellerInfoCard,
-    listingQueryParameters,
 )
 from app.services.user_service import UserService
 
@@ -112,8 +114,8 @@ async def create_listing(
         price=listing.price,
         listing_status=listing.listing_status,
         offer_type=listing.offer_type,
-        # liked=listing in current_user.favorite_listings,
-        liked=False,
+        liked=listing in current_user.favorite_listings,
+        # liked=False,
         seller=SellerInfoCard(
             id=current_user.id,
             firstname=current_user.firstname,
@@ -162,6 +164,7 @@ async def get_my_listings(
     return listings
 
 
+# TESTED for getting listings of user that has listings and no listings
 # get favorite listings
 @router.get(
     "/my-favorites",
@@ -208,7 +211,8 @@ async def get_favorite_listings(
                 price=listing.price,
                 listing_status=listing.listing_status,
                 offer_type=listing.offer_type,
-                liked=True,
+                # liked=True,
+                liked=listing in current_user.favorite_listings,
                 seller=SellerInfoCard(
                     id=listing.seller.id,
                     firstname=listing.seller.firstname,
@@ -225,6 +229,43 @@ async def get_favorite_listings(
     return output_listings
 
 
+# TESTED for getting statistics of user for total lent items
+# TODO: TEST this for total sold items after seeder update
+# get the profile statistics of the current user
+@router.get(
+    "/profile-statistics",
+    response_model=ProfileStatistics,
+    summary="Get number of lent listings and sold listings",
+    description="Fetch the number of lent and sold listings created by the current user.",
+)
+async def get_lent_listings(
+    *,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+):
+    current_user = await user_service.get_user()
+
+    # query the rent_listings table to get every listing where renter is the current user
+    result = await session.execute(
+        select(RentListing).where(RentListing.renter_id == current_user.id)
+    )
+    lent_items = result.scalars().all()
+
+    # query the sale_listings table to get every listing where buyer is the current user
+    result = await session.execute(
+        select(Listing)
+        .where(Listing.seller_id == current_user.id)
+        .where(Listing.listing_status == ListingStatus.SOLD)
+        .options(selectinload(Listing.seller))
+    )
+    sold_listings = result.scalars().all()
+
+    return ProfileStatistics(
+        total_lent=len(lent_items),
+        total_sold=len(sold_listings),
+    )
+
+
 # TESTED for using limit, offset, offer_types, listing_status
 # get listings with specific categories, price, status, offer type, and (address)
 @router.get(
@@ -237,7 +278,7 @@ async def get_listings_by_params(
     *,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
-    params: Annotated[listingQueryParameters, Depends()],
+    params: Annotated[ListingQueryParameters, Depends()],
 ):
     current_user = await user_service.get_user(dependencies=["favorite_listings"])
 
@@ -600,6 +641,82 @@ async def add_favorite(
     return response
 
 
+# TODO: TEST this
+# change listing status to hidden, active, sold
+@router.put(
+    "/change-status/{listing_id}",
+    response_model=ListingCardDetails,
+    summary="Change the status of a listing",
+    description="Change the status of a listing to active, hidden, or sold.",
+)
+async def change_listing_status(
+    *,
+    listing_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+    listing_status: ListingStatus,
+):
+    current_user = await user_service.get_user()
+
+    # check that listing exists
+    result = await session.execute(
+        select(Listing)
+        .where(Listing.id == listing_id)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+        )
+    )
+    listing = result.scalars().one_or_none()
+
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} not found.",
+        )
+
+    # check that user is logged in and is the seller of the listing
+    if current_user.id != listing.seller_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to change the status of this listing.",
+        )
+
+    # set listing status to listing_status
+    if listing_status == ListingStatus.REMOVED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Listing status cannot be REMOVED when changing the status of a listing.",
+        )
+    listing.listing_status = listing_status
+    session.add(listing)
+    await session.commit()
+    await session.refresh(listing)
+
+    response = ListingCardDetails(
+        id=listing.id,
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        listing_status=listing.listing_status,
+        offer_type=listing.offer_type,
+        liked=listing in current_user.favorite_listings,
+        seller=SellerInfoCard(
+            id=listing.seller_id,
+            firstname=listing.seller.firstname,
+            lastname=listing.seller.lastname,
+            rating=await calculate_seller_rating(listing.seller_id, session),
+        ),
+        address=listing.address,
+        categories=listing.categories,
+        created_at=listing.created_at,
+        updated_at=listing.updated_at,
+    )
+
+    return response
+
+
 # TESTED for removing existing listing from favorites and listing not in favorites and not existing
 # remove listing from favorites
 @router.delete(
@@ -651,7 +768,7 @@ async def remove_favorite(
         price=listing.price,
         listing_status=listing.listing_status,
         offer_type=listing.offer_type,
-        liked=False,
+        liked=listing in current_user.favorite_listings,
         seller=SellerInfoCard(
             id=listing.seller_id,
             firstname=listing.seller.firstname,
