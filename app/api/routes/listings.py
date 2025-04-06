@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -25,6 +26,31 @@ from app.services.user_service import UserService
 router = APIRouter(prefix="/listings", tags=["listings"])
 
 
+# TODO: MOVE THIS TO SERVICE CLASS
+async def calculate_seller_rating(
+    seller_id: int, session: AsyncSession
+) -> float | None:
+    """
+    Helper function to get the seller's rating.
+    """
+    # return None if seller has no reviews and round the rating to 2 decimal places if the seller has reviews
+    statement = (
+        select(User)
+        .where(User.id == seller_id)
+        .options(selectinload(User.reviews_received))
+    )
+
+    result = await session.execute(statement)
+    seller: User | None = result.scalars().one_or_none()
+
+    if not seller or len(seller.reviews_received) == 0:
+        return None
+
+    rating_total = sum(review.rating for review in seller.reviews_received)
+    average_rating = round(rating_total / len(seller.reviews_received), 2)
+    return average_rating
+
+
 # TODO: change this so that pictures can be uploaded, change response model, and change ListingCreate schema to take pictures
 # create listing
 @router.post(
@@ -40,7 +66,7 @@ async def create_listing(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
 ):
-    user = user_service.get_user()
+    current_user = await user_service.get_user()
 
     # check that address exists
     if new_listing_data.address_id:
@@ -64,23 +90,45 @@ async def create_listing(
             category_objs.append(category)
 
     # create listing instance
-    new_listing = Listing(
+    listing = Listing(
         title=new_listing_data.title,
         description=new_listing_data.description,
         price=new_listing_data.price,
         listing_status=new_listing_data.listing_status,
         offer_type=new_listing_data.offer_type,
         address=address,
-        seller=user,
+        seller=current_user,
         categories=category_objs,
     )
 
     # add listing to DB session
-    session.add(new_listing)
+    session.add(listing)
     await session.commit()
-    await session.refresh(new_listing)
+    await session.refresh(listing)
 
-    return new_listing
+    response = ListingCardDetails(
+        id=listing.id,
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        listing_status=listing.listing_status,
+        offer_type=listing.offer_type,
+        # liked=listing in current_user.favorite_listings,
+        liked=False,
+        seller=SellerInfoCard(
+            id=current_user.id,
+            firstname=current_user.firstname,
+            lastname=current_user.lastname,
+            rating=await calculate_seller_rating(current_user.id, session),
+        ),
+        address=address,
+        categories=category_objs,
+        # HAVE TO USE THE OBJECTS, OTHERWISE IT WILL TRY TO LAZY LOAD IT FROM listings AND FAIL
+        created_at=listing.created_at,
+        updated_at=listing.updated_at,
+    )
+
+    return response
 
 
 # TESTED for getting listings of user that has listings
@@ -113,31 +161,6 @@ async def get_my_listings(
 
     listings = result.scalars().all()
     return listings
-
-
-# TODO: MOVE THIS TO SERVICE CLASS
-async def calculate_seller_rating(
-    seller_id: int, session: AsyncSession
-) -> float | None:
-    """
-    Helper function to get the seller's rating.
-    """
-    # return None if seller has no reviews and round the rating to 2 decimal places if the seller has reviews
-    statement = (
-        select(User)
-        .where(User.id == seller_id)
-        .options(selectinload(User.reviews_received))
-    )
-
-    result = await session.execute(statement)
-    seller: User | None = result.scalars().one_or_none()
-
-    if not seller or len(seller.reviews_received) == 0:
-        return None
-
-    rating_total = sum(review.rating for review in seller.reviews_received)
-    average_rating = round(rating_total / len(seller.reviews_received), 2)
-    return average_rating
 
 
 # TESTED for using limit, offset, offer_types, listing_status
@@ -337,6 +360,7 @@ async def get_listing(
     return response
 
 
+# TESTED title, description, price, listing_status, offer)type, address_id, category_ids
 # update listing
 @router.put(
     "/{listing_id}",
@@ -365,7 +389,7 @@ async def update_listing(
         .where(Listing.listing_status != ListingStatus.REMOVED)
     )
 
-    listing = result.scalars().first()
+    listing = result.scalars().one_or_none()
 
     if not listing:
         raise HTTPException(
@@ -389,7 +413,7 @@ async def update_listing(
                 detail=f"Address with ID {updated_listing_data.address_id} not found.",
             )
 
-        # listing.address = address
+        listing.address = address
 
     # check that categories exist
     if updated_listing_data.category_ids:
@@ -403,7 +427,7 @@ async def update_listing(
                 )
             category_objs.append(category)
 
-        # listing.categories = category_objs
+        listing.categories = category_objs
 
     # update listing instance
     update_data = updated_listing_data.model_dump(
@@ -413,8 +437,8 @@ async def update_listing(
     for key, value in update_data.items():
         setattr(listing, key, value)
 
-    seller_rating = await calculate_seller_rating(listing.seller_id, session)
-
+    # TEMP NEEDS TO BE HERE AS updated_at will be marked as expired and lazy loaded otherwise
+    temp = listing.updated_at
     response = ListingCardDetails(
         id=listing.id,
         title=listing.title,
@@ -432,7 +456,7 @@ async def update_listing(
         address=listing.address,
         categories=listing.categories,
         created_at=listing.created_at,
-        updated_at=listing.updated_at,
+        updated_at=temp,
     )
 
     # add listing to DB session
@@ -443,6 +467,7 @@ async def update_listing(
     return response
 
 
+# TESTED removing
 # delete listing
 @router.delete(
     "/{listing_id}",
@@ -470,7 +495,7 @@ async def delete_listing(
     if current_user.id != listing.seller_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to update this listing.",
+            detail="You are not authorized to delete this listing.",
         )
 
     # set listing status to removed
