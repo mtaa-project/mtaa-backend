@@ -20,6 +20,14 @@ def run_seeder(module_name: str):
 
 
 def main():
+    print("Dropping all tables...")
+    subprocess.run(["alembic", "downgrade", "base"], check=True)
+
+    print("Running Alembic migrations...")
+    subprocess.run(["alembic", "upgrade", "head"], check=True)
+
+    print("Running seeders...")
+
     seeders_in_order = [
         "app.seeders.1_users",
         "app.seeders.2_categories",
@@ -34,7 +42,8 @@ def main():
         try:
             run_seeder(seeder)
         except subprocess.CalledProcessError:
-            break  # stop on first failure (or use `continue` to skip)
+            # stop on first failure
+            break
 
 
 if __name__ == "__main__":
