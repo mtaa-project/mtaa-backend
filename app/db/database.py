@@ -11,7 +11,7 @@ db_url = URL.create(
     drivername="postgresql+asyncpg",
     username=config.config.db_user,
     password=config.config.db_password,
-    host="127.0.0.1",
+    host=config.config.db_host,
     port=5432,
     database=config.config.db_name,
 )

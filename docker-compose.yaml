@@ -1,17 +1,42 @@
-# docker-compose.yml
-
 services:
-  # web:
-  #   build: .
-  #   command: bash -c 'while !</dev/tcp/db/5432; do sleep 1; done; uvicorn app.main:app --host 0.0.0.0'
-  #   volumes:
-  #     - .:/app
-  #   ports:
-  #     - 8008:8000
-  #   environment:
-  #     - DATABASE_URL=postgresql://fastapi_traefik:fastapi_traefik@db:5432/fastapi_traefik
-  #   depends_on:
-  #     - db
+  backend-server:
+    # Build the image from the Dockerfile in the current directory
+    build:
+      context: .
+      args: [ "DB_HOST=db" ]
+
+    image: mtaa-backend:latest 
+    # Host the FastAPI application on port 8000
+    ports:
+      - "8000:8000"
+
+    develop:
+      # Create a `watch` configuration to update the app
+      # https://docs.docker.com/compose/file-watch/#compose-watch-versus-bind-mounts
+      watch:
+        # Sync the working directory with the `/app` directory in the container
+        - action: sync
+          path: .
+          target: /app
+          # Exclude the project virtual environment — it could be for a
+          # different platform in the container
+          ignore:
+            - .venv/
+
+        # Rebuild the image if dependencies change by checking uv.lock
+        - action: rebuild
+          path: ./uv.lock
+    depends_on:
+      - db
+
+  seeder:
+    image: mtaa-backend:latest 
+    depends_on:
+      - db
+    command: >
+      sh -c "python app/seeders/run_all_seeders.py"
+    restart: "no"
+
   db:
     image: postgres:17.4-alpine3.21
     volumes:
@@ -24,6 +49,5 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
-
 volumes:
   postgres_data:
