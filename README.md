@@ -3,6 +3,8 @@
 ## Requirements
 - [uv](https://docs.astral.sh/uv/) for Python package and environment management.
 
+## Documentation
+The API documentation is hosted at [https://mtaa-project.github.io/mtaa-backend/](https://mtaa-project.github.io/mtaa-backend/) and the source files can be found in the `Docs` directory.
 
 ## General Workflow
 By default, the dependencies are managed with [uv](https://docs.astral.sh/uv/), go there and install it.
