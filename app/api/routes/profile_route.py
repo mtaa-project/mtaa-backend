@@ -63,8 +63,10 @@ async def get_profile(
             Address.user_id == current_user.id, Address.is_primary == True
         )
     )
-
+    print("user: ", current_user.id)
     sold_listings = await user_service.get_sold_listings(current_user.id)
+    rented_listings = await user_service.get_rented_listings(current_user.id)
+
     user_address = user_address.scalars().one_or_none()
 
     return ProfileUser(
@@ -72,7 +74,7 @@ async def get_profile(
         lastname=current_user.lastname,
         phone_number=current_user.phone_number,
         rating=user_rating,
-        amount_rent_listing=len(current_user.rented_listings),
+        amount_rent_listing=len(rented_listings),
         amount_sold_listing=len(sold_listings),
         address=user_address,
     )

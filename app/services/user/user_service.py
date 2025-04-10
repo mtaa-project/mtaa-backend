@@ -8,6 +8,7 @@ from sqlmodel import select
 from app.api.dependencies import get_async_session
 from app.models.enums.listing_status import ListingStatus
 from app.models.listing_model import Listing
+from app.models.rent_listing_model import RentListing
 from app.models.sale_lisitng_model import SaleListing
 from app.models.user_model import User
 from app.services.user.exceptions import UserEmailNotFound, UserNotFound
@@ -104,12 +105,27 @@ class UserService:
         return average_rating
 
     async def get_sold_listings(self, seller_id: int) -> SaleListing:
+        # select(Listing)
+        #     .where(Listing.seller_id == current_user.id)
+        #     .where(Listing.listing_status == ListingStatus.SOLD)
+        #     .options(selectinload(Listing.seller))
+
         sold_listings = await self.session.execute(
-            select(Listing)
-            .join(SaleListing)
-            .where(ListingStatus == ListingStatus.SOLD, Listing.seller_id == seller_id)
+            select(Listing).where(
+                Listing.listing_status == ListingStatus.SOLD,
+                Listing.seller_id == seller_id,
+            )
         )
+
+        # print(sold_listings.scalars().all())
         return sold_listings.scalars().all()
+
+    async def get_rented_listings(self, seller_id: int) -> SaleListing:
+        result = await self.session.execute(
+            select(Listing).join(RentListing).where(Listing.seller_id == seller_id)
+        )
+        print(result.scalars().all())
+        return result.scalars().all()
 
     @classmethod
     async def get_dependency(
