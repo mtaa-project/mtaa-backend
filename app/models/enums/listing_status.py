@@ -7,3 +7,4 @@ class ListingStatus(str, Enum):
     SOLD = "sold"
     HIDDEN = "hidden"
     REMOVED = "removed"
+    RENTED = "rented"
