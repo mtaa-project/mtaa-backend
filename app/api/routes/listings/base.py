@@ -29,6 +29,8 @@ router = APIRouter()
 # TODO: change this so that pictures can be uploaded, change response model, and change ListingCreate schema to take pictures
 # TESTED for listing creation
 # create listing
+# TODO: listing status cannot be set to REMOVED|SOLD when creating a listing
+# TODO: updated input schema so that address is null (use users primary address) or address schema (create new address),
 @router.post(
     "/",
     response_model=ListingCardDetails,
@@ -42,7 +44,9 @@ async def create_listing(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
 ):
-    current_user = await user_service.get_current_user()
+    current_user = await user_service.get_current_user(
+        dependencies=["favorite_listings"]
+    )
 
     # check that address exists
     if new_listing_data.address_id:
@@ -92,7 +96,6 @@ async def create_listing(
         listing_status=listing.listing_status,
         offer_type=listing.offer_type,
         liked=listing in current_user.favorite_listings,
-        # liked=False,
         seller=SellerInfoCard(
             id=current_user.id,
             firstname=current_user.firstname,
@@ -139,6 +142,43 @@ async def get_my_listings(
 
     listings = result.scalars().all()
     return listings
+
+
+# TESTED for getting statistics of user for total lent items
+# TODO: TEST this for total sold items after seeder update
+# get the profile statistics of the current user
+@router.get(
+    "/profile-statistics",
+    response_model=ProfileStatistics,
+    summary="Get number of lent listings and sold listings",
+    description="Fetch the number of lent and sold listings created by the current user.",
+)
+async def get_lent_listings(
+    *,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+):
+    current_user = await user_service.get_current_user()
+
+    # query the rent_listings table to get every listing where renter is the current user
+    result = await session.execute(
+        select(RentListing).where(RentListing.renter_id == current_user.id)
+    )
+    lent_items = result.scalars().all()
+
+    # query the sale_listings table to get every listing where buyer is the current user
+    result = await session.execute(
+        select(Listing)
+        .where(Listing.seller_id == current_user.id)
+        .where(Listing.listing_status == ListingStatus.SOLD)
+        .options(selectinload(Listing.seller))
+    )
+    sold_listings = result.scalars().all()
+
+    return ProfileStatistics(
+        total_lent=len(lent_items),
+        total_sold=len(sold_listings),
+    )
 
 
 # TESTED for using limit, offset, offer_types, listing_status
@@ -492,43 +532,6 @@ async def delete_listing(
     await session.commit()
     await session.refresh(listing)
     return listing
-
-
-# TESTED for getting statistics of user for total lent items
-# TODO: TEST this for total sold items after seeder update
-# get the profile statistics of the current user
-@router.get(
-    "/profile-statistics",
-    response_model=ProfileStatistics,
-    summary="Get number of lent listings and sold listings",
-    description="Fetch the number of lent and sold listings created by the current user.",
-)
-async def get_lent_listings(
-    *,
-    session: AsyncSession = Depends(get_async_session),
-    user_service: UserService = Depends(UserService.get_dependency),
-):
-    current_user = await user_service.get_current_user()
-
-    # query the rent_listings table to get every listing where renter is the current user
-    result = await session.execute(
-        select(RentListing).where(RentListing.renter_id == current_user.id)
-    )
-    lent_items = result.scalars().all()
-
-    # query the sale_listings table to get every listing where buyer is the current user
-    result = await session.execute(
-        select(Listing)
-        .where(Listing.seller_id == current_user.id)
-        .where(Listing.listing_status == ListingStatus.SOLD)
-        .options(selectinload(Listing.seller))
-    )
-    sold_listings = result.scalars().all()
-
-    return ProfileStatistics(
-        total_lent=len(lent_items),
-        total_sold=len(sold_listings),
-    )
 
 
 # TODO: TEST this
