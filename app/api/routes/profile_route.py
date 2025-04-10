@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from phonenumbers import PhoneNumberFormat
 from pydantic import BaseModel, Field
 from pydantic_extra_types.phone_numbers import PhoneNumber, PhoneNumberValidator
@@ -9,10 +9,16 @@ from sqlmodel import select
 
 from app.api.dependencies import get_async_session
 from app.models.address_model import Address
+from app.models.enums.listing_status import ListingStatus
+from app.models.listing_model import Listing
+from app.models.sale_lisitng_model import SaleListing
 from app.schemas.user_schema import (
+    ProfileUser,
+    UserGet,
     UserProfileUpdateRequest,
     UserProfileUpdateResponse,
 )
+from app.services.user.exceptions import UserNotFound
 from app.services.user.user_service import UserService
 
 router = APIRouter(tags=["Profile"])
@@ -41,20 +47,35 @@ class UserMetadata(BaseModel):
     }
 
 
-@router.get("/profile")
+@router.get("/profile", response_model=ProfileUser)
 async def get_profile(
     *,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
 ):
-    current_user = await user_service.get_current_user()
-
-    query_get_address = select(Address).where(
-        Address.user_id == current_user.id, Address.is_primary == True
+    current_user = await user_service.get_current_user(
+        dependencies=["addresses", "purchased_listings", "rented_listings"]
     )
-    user_address = await session.execute(query_get_address)
 
-    return user_address.scalars().one_or_none()
+    user_rating = await user_service.get_seller_rating(current_user.id)
+    user_address = await session.execute(
+        select(Address).where(
+            Address.user_id == current_user.id, Address.is_primary == True
+        )
+    )
+
+    sold_listings = await user_service.get_sold_listings(current_user.id)
+    user_address = user_address.scalars().one_or_none()
+
+    return ProfileUser(
+        firstname=current_user.firstname,
+        lastname=current_user.lastname,
+        phone_number=current_user.phone_number,
+        rating=user_rating,
+        amount_rent_listing=len(current_user.rented_listings),
+        amount_sold_listing=len(sold_listings),
+        address=user_address,
+    )
 
 
 @router.put("/", response_model=UserProfileUpdateResponse)
@@ -93,3 +114,44 @@ async def update_profile(
     await session.refresh(db_user)
     print(f"userdata: {db_user.firstname}")
     return UserProfileUpdateResponse(user_metadata=db_user, address_metadata=db_address)
+
+
+@router.get("/profile/{id}", response_model=ProfileUser)
+async def get_profile(
+    *,
+    id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+):
+    try:
+        user = await user_service.get_user_by_id(
+            id, dependencies=["addresses", "purchased_listings", "rented_listings"]
+        )
+    except UserNotFound:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="This user profile does not exist.",
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Could not get user.",
+        )
+
+    user_rating = await user_service.get_seller_rating(user.id)
+    user_address = await session.execute(
+        select(Address).where(Address.user_id == user.id, Address.is_primary == True)
+    )
+
+    sold_listings = await user_service.get_sold_listings(user.id)
+    user_address = user_address.scalars().one_or_none()
+
+    return ProfileUser(
+        firstname=user.firstname,
+        lastname=user.lastname,
+        phone_number=user.phone_number,
+        rating=user_rating,
+        amount_rent_listing=len(user.rented_listings),
+        amount_sold_listing=len(sold_listings),
+        address=user_address,
+    )

@@ -11,11 +11,13 @@ class UserBase(SQLModel):
     phone_number: str | None = Field(default=None, max_length=255)
 
 
-class UserUpdate(SQLModel):
+class UserGet(SQLModel):
     firstname: str = Field(min_length=1, max_length=255)
     lastname: str = Field(min_length=1, max_length=255)
     phone_number: str | None = Field(default=None, max_length=255)
 
+
+class UserUpdate(UserGet):
     model_config = {"extra": "forbid"}
 
 
@@ -27,3 +29,10 @@ class UserProfileUpdateRequest(BaseModel):
 class UserProfileUpdateResponse(BaseModel):
     user_metadata: UserBase
     address_metadata: AddressBase
+
+
+class ProfileUser(UserGet):
+    amount_sold_listing: int
+    amount_rent_listing: int
+    rating: float | None = Field(ge=1, le=5)
+    address: AddressBase
