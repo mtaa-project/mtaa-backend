@@ -12,6 +12,7 @@ dependencies = [
   "fastapi[standard]>=0.115.8",
   "firebase-admin>=6.7.0",
   "httpx>=0.28.1",
+  "phonenumbers>=9.0.2",
   "pycountry>=24.6.1",
   "pydantic-extra-types>=2.10.3",
   "pydantic-settings>=2.8.1",
