@@ -8,21 +8,8 @@ from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
-
-
-# Seller info schema
-# this is used to display seller info in listing cards
-class SellerInfoCard(SQLModel):
-    id: int
-    firstname: str
-    lastname: str
-    rating: float | None = None
-
-
-class SellerInfoExpanded(SellerInfoCard):
-    phone_number: str | None = None
-    email: str
-
+from app.schemas.address_schema import AddressBase
+from app.schemas.user_schema import SellerInfoCard
 
 # Schema for images of listings used in listing cards and listing details
 # class ListingImage(SQLModel):
@@ -78,7 +65,7 @@ class ListingCardDetails(ListingCard):
 # schema for listing creation
 class ListingCreate(ListingBase):
     description: str
-    address_id: int  # address visibility is handled in the address model
+    address_info: AddressBase | None = None  # address info for creating new address
     category_ids: list[int]  # list of category ids
 
 
