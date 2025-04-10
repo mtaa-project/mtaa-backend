@@ -30,7 +30,6 @@ router = APIRouter()
 # TESTED for listing creation
 # create listing
 # TODO: listing status cannot be set to REMOVED|SOLD when creating a listing
-# TODO: updated input schema so that address is null (use users primary address) or address schema (create new address),
 @router.post(
     "/",
     response_model=ListingCardDetails,
@@ -48,13 +47,37 @@ async def create_listing(
         dependencies=["favorite_listings"]
     )
 
-    # check that address exists
-    if new_listing_data.address_id:
-        address = await session.get(Address, new_listing_data.address_id)
+    # check that listing status is not removed or sold
+    if new_listing_data.listing_status in [
+        ListingStatus.REMOVED,
+        ListingStatus.SOLD,
+    ]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Listing status cannot be REMOVED or SOLD when creating a listing.",
+        )
+
+    # address management
+    if new_listing_data.address_info is not None:
+        # create new address
+        address_data = new_listing_data.address_info.model_dump(exclude_none=True)
+        address = Address.model_validate(address_data)
+        session.add(address)
+        await session.commit()
+        await session.refresh(address)
+    else:
+        # get primary address of user
+        address = await session.execute(
+            select(Address).where(
+                Address.user_id == current_user.id, Address.is_primary == True
+            )
+        )
+        address = address.scalars().one_or_none()
+
         if not address:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Address with ID {new_listing_data.address_id} not found.",
+                detail="No primary address found for the user.",
             )
 
     # check that categories exist and collect them
