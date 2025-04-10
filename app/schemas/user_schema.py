@@ -36,3 +36,17 @@ class ProfileUser(UserGet):
     amount_rent_listing: int
     rating: float | None = Field(ge=1, le=5)
     address: AddressBase
+
+
+# Seller info schema
+# this is used to display seller info in listing cards
+class SellerInfoCard(SQLModel):
+    id: int
+    firstname: str
+    lastname: str
+    rating: float | None = None
+
+
+class SellerInfoExpanded(SellerInfoCard):
+    phone_number: str | None = None
+    email: str
