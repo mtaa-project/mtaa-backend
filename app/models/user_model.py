@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING, List
 from pydantic import EmailStr
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.models.firebase_cloud_token_model import FirebaseCloudToken
+
 from .favorite_listing_model import FavoriteListing
 from .rent_listing_model import RentListing
 from .sale_lisitng_model import SaleListing
@@ -27,6 +29,10 @@ class User(SQLModel, table=True):
     phone_number: str | None = Field(default=None, max_length=255)
 
     # Relationships
+    addresses: List["Address"] = Relationship(
+        back_populates="users",
+    )
+
     reviews_written: List["UserReview"] = Relationship(
         back_populates="reviewer",
         sa_relationship_kwargs={"foreign_keys": "[UserReview.reviewer_id]"},
@@ -37,15 +43,15 @@ class User(SQLModel, table=True):
         sa_relationship_kwargs={"foreign_keys": "UserReview.reviewee_id"},
     )
 
+    firebase_cloud_tokens: List["FirebaseCloudToken"] = Relationship(
+        back_populates="user"
+    )
+
     search_alerts: List["UserSearchAlert"] = Relationship(
         back_populates="user",
         # This configures SQLModel to automatically delete the related
         # records (UserSearchAlert) when the initial one is deleted (a User).
         cascade_delete=True,
-    )
-
-    addresses: List["Address"] = Relationship(
-        back_populates="users",
     )
 
     favorite_listings: list["Listing"] = Relationship(
