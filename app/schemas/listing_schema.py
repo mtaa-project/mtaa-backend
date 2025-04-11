@@ -65,7 +65,7 @@ class ListingCardDetails(ListingCard):
 # schema for listing creation
 class ListingCreate(ListingBase):
     description: str
-    address_info: AddressBase | None = None  # address info for creating new address
+    address: AddressBase | None = None  # address info for creating new address
     category_ids: list[int]  # list of category ids
 
 
@@ -74,9 +74,8 @@ class ListingUpdate(SQLModel):
     title: str | None = None
     description: str | None = None
     price: Decimal | None = None
-    listing_status: ListingStatus | None = None
     offer_type: OfferType | None = None
-    address_id: int | None = None
+    address: AddressBase | None = None  # address info for creating new address
     category_ids: list[int] | None = None
 
 
