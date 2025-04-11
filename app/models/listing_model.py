@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import TYPE_CHECKING, List, Optional
 
@@ -28,9 +28,6 @@ class Listing(SQLModel, table=True):
     price: Decimal = Field(max_digits=10, decimal_places=2)
     listing_status: ListingStatus = Field(default=ListingStatus.ACTIVE)
     offer_type: OfferType
-    # visibility: bool = Field(default=True)  # True = visible, False = hidden
-    # visibility is handled in the listing status as HIDDEN
-    # address visibility is handled in the address model
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(TIMESTAMP(timezone=True), nullable=False),
