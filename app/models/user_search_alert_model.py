@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict
 
 from sqlalchemy import Column
-from sqlmodel import JSON, Field, Relationship, SQLModel
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .user_model import User
@@ -13,13 +14,15 @@ class UserSearchAlert(SQLModel, table=True):
 
     id: int = Field(default=None, primary_key=True)
 
-    product_filters: Dict[str, Any] = Field(sa_column=Column(JSON, nullable=False))
+    product_filters: Dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: Optional[datetime]
+    last_notified_at: datetime | None = Field(
+        default=None
+    )  # Used to track the last time the user was notified about new listings that match their search alert.
 
     # Foreign keys
     user_id: int = Field(foreign_key="users.id", ondelete="CASCADE")
 
     # Relationships
-    user: Optional["User"] | None = Relationship(back_populates="search_alerts")
+    user: "User" = Relationship(back_populates="search_alerts")
