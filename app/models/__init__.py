@@ -4,6 +4,7 @@ from .category_model import Category
 from .enums.listing_status import ListingStatus
 from .enums.offer_type import OfferType
 from .favorite_listing_model import FavoriteListing
+from .firebase_cloud_token_model import FirebaseCloudToken
 from .listing_model import Listing
 from .product_model import Product
 from .user_model import User
