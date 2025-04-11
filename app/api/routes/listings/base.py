@@ -11,7 +11,6 @@ from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.listing_model import Listing
 from app.models.rent_listing_model import RentListing
-from app.models.user_model import User
 from app.schemas.listing_schema import (
     ListingCardDetails,
     ListingCardProfile,
@@ -29,7 +28,6 @@ router = APIRouter()
 # TODO: change this so that pictures can be uploaded, change response model, and change ListingCreate schema to take pictures
 # TESTED for listing creation
 # create listing
-# TODO: listing status cannot be set to REMOVED|SOLD when creating a listing
 @router.post(
     "/",
     response_model=ListingCardDetails,
@@ -58,10 +56,12 @@ async def create_listing(
         )
 
     # address management
-    if new_listing_data.address_info is not None:
+    if new_listing_data.address is not None:
         # create new address
-        address_data = new_listing_data.address_info.model_dump(exclude_none=True)
+        address_data = new_listing_data.address.model_dump(exclude_none=True)
         address = Address.model_validate(address_data)
+        address.user_id = current_user.id
+
         session.add(address)
         await session.commit()
         await session.refresh(address)
@@ -165,43 +165,6 @@ async def get_my_listings(
 
     listings = result.scalars().all()
     return listings
-
-
-# TESTED for getting statistics of user for total lent items
-# TODO: TEST this for total sold items after seeder update
-# get the profile statistics of the current user
-@router.get(
-    "/profile-statistics",
-    response_model=ProfileStatistics,
-    summary="Get number of lent listings and sold listings",
-    description="Fetch the number of lent and sold listings created by the current user.",
-)
-async def get_lent_listings(
-    *,
-    session: AsyncSession = Depends(get_async_session),
-    user_service: UserService = Depends(UserService.get_dependency),
-):
-    current_user = await user_service.get_current_user()
-
-    # query the rent_listings table to get every listing where renter is the current user
-    result = await session.execute(
-        select(RentListing).where(RentListing.renter_id == current_user.id)
-    )
-    lent_items = result.scalars().all()
-
-    # query the sale_listings table to get every listing where buyer is the current user
-    result = await session.execute(
-        select(Listing)
-        .where(Listing.seller_id == current_user.id)
-        .where(Listing.listing_status == ListingStatus.SOLD)
-        .options(selectinload(Listing.seller))
-    )
-    sold_listings = result.scalars().all()
-
-    return ProfileStatistics(
-        total_lent=len(lent_items),
-        total_sold=len(sold_listings),
-    )
 
 
 # TESTED for using limit, offset, offer_types, listing_status
@@ -406,7 +369,7 @@ async def get_listing(
     return response
 
 
-# TESTED title, description, price, listing_status, offer)type, address_id, category_ids
+# TESTED title, description, price, listing_status, offer_type, address_id, category_ids
 # update listing
 @router.put(
     "/{listing_id}",
@@ -453,14 +416,17 @@ async def update_listing(
             detail="You are not authorized to update this listing.",
         )
 
-    # check that address exists
-    if updated_listing_data.address_id is not None:
-        address = await session.get(Address, updated_listing_data.address_id)
-        if not address:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Address with ID {updated_listing_data.address_id} not found.",
-            )
+    # change address if address_id is provided
+    if updated_listing_data.address:
+        # create new address
+        address_data = updated_listing_data.address.model_dump(exclude_none=True)
+        address = Address.model_validate(address_data)
+        address.user_id = current_user.id
+
+        # add address to DB session
+        session.add(address)
+        await session.commit()
+        await session.refresh(address)
 
         listing.address = address
 
@@ -558,76 +524,78 @@ async def delete_listing(
 
 
 # TODO: TEST this
+# TODO: change this so that it correctly handles listing status because it needs to be sent to sellListing table,
+# TODO: split this to more endpoints -> change to sold, change to hidden, change to rented
 # change listing status to hidden, active, sold
-@router.put(
-    "/change-status/{listing_id}",
-    response_model=ListingCardDetails,
-    summary="Change the status of a listing",
-    description="Change the status of a listing to active, hidden, or sold.",
-)
-async def change_listing_status(
-    *,
-    listing_id: int,
-    session: AsyncSession = Depends(get_async_session),
-    user_service: UserService = Depends(UserService.get_dependency),
-    listing_status: ListingStatus,
-):
-    current_user = await user_service.get_current_user()
+# @router.put(
+#     "/change-status/{listing_id}",
+#     response_model=ListingCardDetails,
+#     summary="Change the status of a listing",
+#     description="Change the status of a listing to active, hidden, or sold.",
+# )
+# async def change_listing_status(
+#     *,
+#     listing_id: int,
+#     session: AsyncSession = Depends(get_async_session),
+#     user_service: UserService = Depends(UserService.get_dependency),
+#     listing_status: ListingStatus,
+# ):
+#     current_user = await user_service.get_current_user()
 
-    # check that listing exists
-    result = await session.execute(
-        select(Listing)
-        .where(Listing.id == listing_id)
-        .options(
-            selectinload(Listing.address),
-            selectinload(Listing.categories),
-            selectinload(Listing.seller),
-        )
-    )
-    listing = result.scalars().one_or_none()
+#     # check that listing exists
+#     result = await session.execute(
+#         select(Listing)
+#         .where(Listing.id == listing_id)
+#         .options(
+#             selectinload(Listing.address),
+#             selectinload(Listing.categories),
+#             selectinload(Listing.seller),
+#         )
+#     )
+#     listing = result.scalars().one_or_none()
 
-    if not listing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Listing with ID {listing_id} not found.",
-        )
+#     if not listing:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail=f"Listing with ID {listing_id} not found.",
+#         )
 
-    # check that user is logged in and is the seller of the listing
-    if current_user.id != listing.seller_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to change the status of this listing.",
-        )
+#     # check that user is logged in and is the seller of the listing
+#     if current_user.id != listing.seller_id:
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="You are not authorized to change the status of this listing.",
+#         )
 
-    # set listing status to listing_status
-    if listing_status == ListingStatus.REMOVED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Listing status cannot be REMOVED when changing the status of a listing.",
-        )
-    listing.listing_status = listing_status
-    session.add(listing)
-    await session.commit()
-    await session.refresh(listing)
+#     # set listing status to listing_status
+#     if listing_status == ListingStatus.REMOVED:
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Listing status cannot be REMOVED when changing the status of a listing.",
+#         )
+#     listing.listing_status = listing_status
+#     session.add(listing)
+#     await session.commit()
+#     await session.refresh(listing)
 
-    response = ListingCardDetails(
-        id=listing.id,
-        title=listing.title,
-        description=listing.description,
-        price=listing.price,
-        listing_status=listing.listing_status,
-        offer_type=listing.offer_type,
-        liked=listing in current_user.favorite_listings,
-        seller=SellerInfoCard(
-            id=listing.seller_id,
-            firstname=listing.seller.firstname,
-            lastname=listing.seller.lastname,
-            rating=await user_service.get_seller_rating(listing.seller_id),
-        ),
-        address=listing.address,
-        categories=listing.categories,
-        created_at=listing.created_at,
-        updated_at=listing.updated_at,
-    )
+#     response = ListingCardDetails(
+#         id=listing.id,
+#         title=listing.title,
+#         description=listing.description,
+#         price=listing.price,
+#         listing_status=listing.listing_status,
+#         offer_type=listing.offer_type,
+#         liked=listing in current_user.favorite_listings,
+#         seller=SellerInfoCard(
+#             id=listing.seller_id,
+#             firstname=listing.seller.firstname,
+#             lastname=listing.seller.lastname,
+#             rating=await user_service.get_seller_rating(listing.seller_id),
+#         ),
+#         address=listing.address,
+#         categories=listing.categories,
+#         created_at=listing.created_at,
+#         updated_at=listing.updated_at,
+#     )
 
-    return response
+#     return response
