@@ -1,11 +1,12 @@
 from typing import TYPE_CHECKING, List
 
-from pydantic import EmailStr
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship
+
+from app.schemas.user_schema import UserBase
 
 from .favorite_listing_model import FavoriteListing
 from .rent_listing_model import RentListing
-from .sale_lisitng_model import SaleListing
+from .sale_listing_model import SaleListing
 
 if TYPE_CHECKING:
     from listing_model import Listing
@@ -16,15 +17,10 @@ if TYPE_CHECKING:
     from .user_search_alert_model import UserSearchAlert
 
 
-class User(SQLModel, table=True):
+class User(UserBase, table=True):
     __tablename__ = "users"
 
     id: int = Field(default=None, primary_key=True)
-
-    firstname: str = Field(min_length=1, max_length=255)
-    lastname: str = Field(min_length=1, max_length=255)
-    email: EmailStr = Field(unique=True, max_length=255)
-    phone_number: str | None = Field(default=None, max_length=255)
 
     # Relationships
     reviews_written: List["UserReview"] = Relationship(
