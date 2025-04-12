@@ -7,4 +7,5 @@ class ListingStatus(str, Enum):
     SOLD = "sold"
     HIDDEN = "hidden"
     REMOVED = "removed"
+    # ked pride end date cas vratenia presunie sa do stavu active
     RENTED = "rented"

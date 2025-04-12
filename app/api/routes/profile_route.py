@@ -9,9 +9,6 @@ from sqlmodel import select
 
 from app.api.dependencies import get_async_session
 from app.models.address_model import Address
-from app.models.enums.listing_status import ListingStatus
-from app.models.listing_model import Listing
-from app.models.sale_lisitng_model import SaleListing
 from app.schemas.user_schema import (
     ProfileUser,
     UserGet,

@@ -1,13 +1,12 @@
 from typing import TYPE_CHECKING, List
 
-from pydantic import EmailStr
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship
 
 from app.schemas.user_schema import UserBase
 
 from .favorite_listing_model import FavoriteListing
 from .rent_listing_model import RentListing
-from .sale_lisitng_model import SaleListing
+from .sale_listing_model import SaleListing
 
 if TYPE_CHECKING:
     from listing_model import Listing

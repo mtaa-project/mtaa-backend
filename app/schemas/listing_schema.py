@@ -1,13 +1,14 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 
-from sqlmodel import SQLModel
+from sqlmodel import Field, SQLModel
 
 from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
+from app.schemas.transaction_schema import ListingTransactionBase
 
 
 # Seller info schema
@@ -32,11 +33,15 @@ class SellerInfoExpanded(SellerInfoCard):
 #     listing_id: int
 #     is_primary: bool = True
 
+# class ListingBase(SQLModel):
+#     title: str
+#     price: Decimal
+#     listing_status: ListingStatus
+#     offer_type: OfferType
+
 
 # Basic schema for listing data
-class ListingBase(SQLModel):
-    title: str
-    price: Decimal
+class ListingBase(SQLModel, ListingTransactionBase):
     listing_status: ListingStatus
     offer_type: OfferType
 
@@ -44,7 +49,6 @@ class ListingBase(SQLModel):
 # Schema for displaying users own listing data in Profile
 class ListingCardProfile(ListingBase):
     id: int
-    description: str
 
     # extra information for listing cards that can be used to display in profile
     address: Address
@@ -67,6 +71,8 @@ class ListingCard(ListingBase):
     categories: list["Category"]  # list of category ids
     created_at: datetime
     updated_at: datetime | None
+
+    description: Optional[str] = Field(default=None, exclude=True)
 
 
 # Schema for displaying listing data in medium and big cards
