@@ -76,6 +76,7 @@ async def get_favorite_listings(
                 categories=listing.categories,
                 created_at=listing.created_at,
                 updated_at=listing.updated_at,
+                image_paths=[""],
             )
         )
     return output_listings
@@ -107,7 +108,7 @@ async def add_favorite(
     )
     listing = result.scalars().one_or_none()
 
-    if not listing or listing.listing_status == ListingStatus.REMOVED:
+    if listing is None or listing.listing_status == ListingStatus.REMOVED:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Listing with ID {listing_id} not found.",
@@ -145,6 +146,7 @@ async def add_favorite(
         categories=listing.categories,
         created_at=listing.created_at,
         updated_at=listing.updated_at,
+        image_paths=[""],
     )
 
     # add user to DB session
@@ -220,6 +222,7 @@ async def remove_favorite(
         categories=listing.categories,
         created_at=listing.created_at,
         updated_at=listing.updated_at,
+        image_paths=[""],
     )
 
     # add user to DB session

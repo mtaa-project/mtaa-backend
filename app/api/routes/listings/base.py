@@ -9,9 +9,10 @@ from app.api.dependencies import get_async_session
 from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
+from app.models.listing_image import ListingImage
 from app.models.listing_model import Listing
-from app.models.user_model import User
 from app.schemas.listing_schema import (
+    ListingCardCreate,
     ListingCardDetails,
     ListingCardProfile,
     ListingCreate,
@@ -19,6 +20,7 @@ from app.schemas.listing_schema import (
     SellerInfoCard,
     listingQueryParameters,
 )
+from app.services.listing.listing_service import ListingService
 from app.services.user.user_service import UserService
 
 router = APIRouter()
@@ -29,7 +31,7 @@ router = APIRouter()
 # create listing
 @router.post(
     "/",
-    response_model=ListingCardDetails,
+    response_model=ListingCardCreate,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new listing",
     description="Creates a listing with optional address and category assignments. Requires a valid seller ID.",
@@ -75,6 +77,11 @@ async def create_listing(
         categories=category_objs,
     )
 
+    image_paths: list[str] = []
+    for image_path in new_listing_data.image_paths:
+        listing.images.append(ListingImage(path=image_path))
+        image_paths.append(image_path)
+
     # add listing to DB session
     session.add(listing)
     await session.commit()
@@ -102,6 +109,7 @@ async def create_listing(
         # HAVE TO USE THE OBJECTS, OTHERWISE IT WILL TRY TO LAZY LOAD IT FROM listings AND FAIL
         created_at=listing.created_at,
         updated_at=listing.updated_at,
+        image_paths=image_paths,
     )
 
     return response
@@ -152,6 +160,7 @@ async def get_listings_by_params(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     params: Annotated[listingQueryParameters, Depends()],
+    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
@@ -179,6 +188,7 @@ async def get_listings_by_params(
         selectinload(Listing.seller),
         selectinload(Listing.categories),
         selectinload(Listing.address),
+        selectinload(Listing.images),
     )
     # Remove REMOVED & HIDDEN listings
     query = query.where(Listing.listing_status == ListingStatus.ACTIVE)
@@ -248,7 +258,7 @@ async def get_listings_by_params(
     listings = listings[params.offset : params.offset + params.limit]
 
     favorites_dict = {fav.id: fav for fav in current_user.favorite_listings}
-
+    presigned_urls = listing_service.get_presigned_urls(listing.images)
     for listing in listings:
         output_listings.append(
             ListingCardDetails(
@@ -269,6 +279,7 @@ async def get_listings_by_params(
                 categories=listing.categories,
                 created_at=listing.created_at,
                 updated_at=listing.updated_at,
+                image_paths=presigned_urls,
             )
         )
 
@@ -288,6 +299,7 @@ async def get_listing(
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
@@ -299,6 +311,7 @@ async def get_listing(
             selectinload(Listing.address),
             selectinload(Listing.categories),
             selectinload(Listing.seller),
+            selectinload(Listing.images),
         )
         .where(Listing.id == listing_id)
     )
@@ -318,6 +331,9 @@ async def get_listing(
         )
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
 
+    # generate presigned urls for listing images
+    presigned_urls = listing_service.get_presigned_urls(listing.images)
+
     response = ListingCardDetails(
         id=listing.id,
         title=listing.title,
@@ -336,6 +352,7 @@ async def get_listing(
         categories=listing.categories,
         created_at=listing.created_at,
         updated_at=listing.updated_at,
+        image_paths=presigned_urls,
     )
 
     return response
@@ -345,7 +362,7 @@ async def get_listing(
 # update listing
 @router.put(
     "/{listing_id}",
-    # response_model=ListingCardDetails,
+    response_model=ListingCardDetails,
     summary="Update an existing listing",
     description="Updates listing fields and category relationships. You must provide valid address/category IDs.",
 )
@@ -355,6 +372,7 @@ async def update_listing(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     updated_listing_data: ListingUpdate,
+    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
@@ -367,6 +385,7 @@ async def update_listing(
             selectinload(Listing.address),
             selectinload(Listing.categories),
             selectinload(Listing.seller),
+            selectinload(Listing.images),
         )
         .where(Listing.id == listing_id)
         .where(Listing.listing_status != ListingStatus.REMOVED)
@@ -379,6 +398,8 @@ async def update_listing(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Listing with ID {listing_id} not found",
         )
+
+    # TEMP NEEDS TO BE HERE AS updated_at will be marked as expired and lazy loaded otherwise
     temp = listing.updated_at
 
     # check that user is logged in and is the seller of the listing
@@ -421,9 +442,12 @@ async def update_listing(
     for key, value in update_data.items():
         setattr(listing, key, value)
 
-    # TEMP NEEDS TO BE HERE AS updated_at will be marked as expired and lazy loaded otherwise
+    # if updated_listing_data.image_paths and len(updated_listing_data.image_paths) > 0:
+    #     # TODO: update image paths:
+    #     listing.images = updated_listing_data.image_paths
 
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
+    presigned_urls = listing_service.get_presigned_urls(listing.images)
 
     response = ListingCardDetails(
         id=listing.id,
@@ -443,6 +467,7 @@ async def update_listing(
         categories=listing.categories,
         created_at=listing.created_at,
         updated_at=temp,
+        image_paths=presigned_urls,
     )
 
     # add listing to DB session

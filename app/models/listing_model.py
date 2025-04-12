@@ -13,6 +13,8 @@ from .favorite_listing_model import FavoriteListing
 from .sale_listing_model import SaleListing
 
 if TYPE_CHECKING:
+    from app.models.listing_image import ListingImage
+
     from .address_model import Address
     from .category_model import Category
     from .user_model import User
@@ -23,6 +25,8 @@ class Listing(ListingBase, ListingTransactionBase, table=True):
     id: int = Field(default=None, primary_key=True)
     seller_id: int = Field(foreign_key="users.id")
     address_id: int = Field(foreign_key="addresses.id")
+
+    images: List["ListingImage"] = Relationship(back_populates="listing")
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
