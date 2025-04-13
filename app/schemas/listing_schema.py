@@ -75,10 +75,10 @@ class ListingCard(ListingBase):
     description: Optional[str] = Field(default=None, exclude=True)
 
 
-# Schema for displaying listing data in medium and big cards
-# this is used to read listing data from the database
-class ListingCardDetails(ListingCard):
-    description: str
+# # Schema for displaying listing data in medium and big cards
+# # this is used to read listing data from the database
+# class ListingCardDetails(ListingCard):
+#     description: str
 
 
 # schema for listing creation
