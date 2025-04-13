@@ -74,6 +74,7 @@ class ListingCard(ListingBase):
 class ListingCardDetails(ListingCard):
     description: str
     image_paths: list[str]
+    distance_from_user: float | None = None  # distance from user location
 
 
 # schema for listing creation
@@ -112,6 +113,6 @@ class listingQueryParameters(SQLModel):
     search: str | None = None
 
     # location based search
-    latitude: float | None = None
-    longitude: float | None = None
+    user_latitude: float | None = None
+    user_longitude: float | None = None
     max_distance: float | None = None  # same as radius, in km
