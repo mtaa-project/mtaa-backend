@@ -26,9 +26,11 @@ async def seed_addresses():
                 visibility=True,
                 country=fake.country_code(representation="alpha-2"),
                 city=fake.city(),
-                zip_code=fake.postcode(),
                 street=fake.street_address(),
                 user_id=user.id,
+                latitude=fake.latitude(),
+                longitude=fake.longitude(),
+                postal_code=fake.postcode(),
             )
             session.add(address)
             user_addresses[user.id] = address

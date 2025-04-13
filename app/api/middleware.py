@@ -9,9 +9,11 @@ firebase_app = None
 
 def init_firebase():
     global firebase_app
-    if not _apps and os.getenv("TESTING") != "1":
+    if not _apps:
         cred = credentials.Certificate("mtaa-project-service-account.json")
-        firebase_app = initialize_app(cred)
+        firebase_app = initialize_app(
+            cred, {"storageBucket": "mtaa-project-5235a.firebasestorage.app"}
+        )
 
 
 async def authenticate_request(request: Request, call_next):
@@ -41,7 +43,6 @@ async def authenticate_request(request: Request, call_next):
         request.state.user = user
         return await call_next(request)
     except Exception as e:
-        print(e)
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"error": f"{e}"},

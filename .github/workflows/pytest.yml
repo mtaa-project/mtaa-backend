@@ -36,5 +36,9 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev -v
 
+      - name: Create Firebase credentials file
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" | base64 -d > mtaa-project-service-account.json
+
       - name: Run tests
         run: uv run pytest
