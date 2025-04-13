@@ -12,8 +12,8 @@ class AddressBase(SQLModel):
     city: str | None = Field(default=None, max_length=255)
     street: str | None = Field(default=None, max_length=255)
     postal_code: str = Field(max_length=10)
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    latitude: float | None = Field(default=None)
+    longitude: float | None = Field(default=None)
 
 
 class AddressUpdate(SQLModel):
