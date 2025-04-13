@@ -302,7 +302,10 @@ async def get_listings_by_params(
     if params.max_price is not None:
         query = query.where(Listing.price <= params.max_price)
     if params.search is not None:
-        query = query.where(Listing.title.ilike(f"%{params.search}%"))
+        query = query.where(
+            (Listing.title.ilike(f"%{params.search}%"))
+            | (Listing.description.ilike(f"%{params.search}%"))
+        )
     if params.min_rating is not None:
         query = query.where(rating_val >= params.min_rating)
 
@@ -322,7 +325,7 @@ async def get_listings_by_params(
         )
 
         # Add distance to the select statement
-        query = query.add_columns(distance_subquery.c.distance)
+        query = query.add_columns(distance_subquery.c.distance.label("distance"))
 
         if params.max_distance is not None:
             query = query.where(distance_subquery.c.distance <= params.max_distance)
@@ -335,8 +338,8 @@ async def get_listings_by_params(
         "created_at": Listing.created_at,
         "updated_at": Listing.updated_at,
         "price": Listing.price,
-        "rating": query.c.seller_rating,
-        "location": query.c.distance,
+        "rating": rating_val,
+        "location": distance_subquery.c.distance,
     }
 
     if params.sort_order == "asc":
