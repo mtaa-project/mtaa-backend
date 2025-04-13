@@ -10,6 +10,7 @@ from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
+from app.models.listing_image import ListingImage
 from app.models.listing_model import Listing
 from app.models.rent_listing_model import RentListing
 from app.models.sale_listing_model import SaleListing
@@ -59,11 +60,26 @@ async def seed_users_listings():
                     address_id=result_address.id,
                     listing_status=listing_status,
                 )
+
                 session.add(listing)
                 await session.flush()
 
-                random_category = random.choice(categories)
+                listing_images = [
+                    "user_uploads/NrVkdG2xBcTk14ejuq3atkwNrpt1/1744491829418-1000001431.jpg",
+                    "user_uploads/NrVkdG2xBcTk14ejuq3atkwNrpt1/1744491829418-1000001431.jpg",
+                    "user_uploads/NrVkdG2xBcTk14ejuq3atkwNrpt1/1744491829418-1000001431.jpg",
+                ]
+                # generate images for given listing
+                db_listing_images = [
+                    ListingImage(listing_id=listing.id, path=img)
+                    for img in listing_images
+                ]
+
                 # listing.categories = [random_category]
+                session.add_all(db_listing_images)
+                await session.commit()
+
+                random_category = random.choice(categories)
 
                 if listing_status == ListingStatus.SOLD:
                     buyer = random.choice(users)

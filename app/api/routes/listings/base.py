@@ -1,7 +1,7 @@
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio.session import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import asc, desc, select
 
@@ -128,6 +128,7 @@ async def get_my_listings(
     *,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     current_user = await user_service.get_current_user()
 
@@ -140,11 +141,25 @@ async def get_my_listings(
             selectinload(Listing.address),
             selectinload(Listing.categories),
             selectinload(Listing.seller),
+            selectinload(Listing.images),
         )
     )
 
-    listings = result.scalars().all()
-    return listings
+    listings: list[Listing] = result.scalars().all()
+    listing_result: list[ListingCardProfile] = []
+    for listing in listings:
+        presigned_urls = listing_service.get_presigned_urls(listing.images)
+        listing_data = listing.model_dump(exclude_none=True)
+        # set title image
+        main_image = presigned_urls[0] if len(presigned_urls) > 0 else ""
+        listing_data.setdefault("image_path", main_image)
+
+        listing_data.setdefault("address", listing.address)
+
+        listing_card = ListingCardProfile.model_validate(listing_data)
+        listing_result.append(listing_card)
+
+    return listing_result
 
 
 # TESTED for using limit, offset, offer_types, listing_status
@@ -258,8 +273,9 @@ async def get_listings_by_params(
     listings = listings[params.offset : params.offset + params.limit]
 
     favorites_dict = {fav.id: fav for fav in current_user.favorite_listings}
-    presigned_urls = listing_service.get_presigned_urls(listing.images)
     for listing in listings:
+        presigned_urls = listing_service.get_presigned_urls(listing.images)
+
         output_listings.append(
             ListingCardDetails(
                 id=listing.id,

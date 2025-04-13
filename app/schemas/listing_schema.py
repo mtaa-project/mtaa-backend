@@ -42,6 +42,7 @@ class ListingCardProfile(ListingBase):
     address: Address
     created_at: datetime
     updated_at: datetime
+    image_path: str
 
 
 class ListingCardCreate(ListingBase):
