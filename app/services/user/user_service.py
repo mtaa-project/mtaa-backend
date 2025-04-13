@@ -7,7 +7,6 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.api.dependencies import get_async_session
-from app.models.address_model import Address
 from app.models.enums.listing_status import ListingStatus
 from app.models.listing_model import Listing
 from app.models.rent_listing_model import RentListing
@@ -106,53 +105,6 @@ class UserService:
     #     rating_total = sum(review.rating for review in seller.reviews_received)
     #     average_rating = round(rating_total / len(seller.reviews_received), 2)
     #     return average_rating
-
-    def get_listing_distance_subquery(
-        self, user_lat: float, user_lon: float, earth_radius: float = 6371
-    ):
-        """
-        Returns a subquery that computes the haversine distance between the
-        listing’s address and the given user latitude and longitude.
-        """
-        distance_subquery = (
-            select(
-                Listing.id.label("listing_id"),
-                (
-                    earth_radius
-                    * 2
-                    * func.asin(
-                        func.sqrt(
-                            func.pow(
-                                func.sin(
-                                    (
-                                        func.radians(Address.latitude)
-                                        - func.radians(user_lat)
-                                    )
-                                    / 2
-                                ),
-                                2,
-                            )
-                            + func.cos(func.radians(user_lat))
-                            * func.cos(func.radians(Address.latitude))
-                            * func.pow(
-                                func.sin(
-                                    (
-                                        func.radians(Address.longitude)
-                                        - func.radians(user_lon)
-                                    )
-                                    / 2
-                                ),
-                                2,
-                            )
-                        )
-                    )
-                ).label("distance"),
-            )
-            .select_from(Listing)
-            .join(Address)
-            .subquery()
-        )
-        return distance_subquery
 
     def get_seller_rating_subquery(self):
         """
