@@ -1,8 +1,8 @@
-"""add firebase cloud token table and relationships
+"""add firebase cloud token table
 
-Revision ID: 7e62c3d20f2c
-Revises: 139101757380
-Create Date: 2025-04-12 01:12:07.726929
+Revision ID: 24916feca6d7
+Revises: 054e8dcaaa92
+Create Date: 2025-04-13 12:14:04.140567
 
 """
 from typing import Sequence, Union
@@ -14,8 +14,8 @@ import sqlmodel
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '7e62c3d20f2c'
-down_revision: Union[str, None] = '139101757380'
+revision: str = '24916feca6d7'
+down_revision: Union[str, None] = '054e8dcaaa92'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
