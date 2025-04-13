@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, null
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
@@ -19,7 +20,7 @@ router = APIRouter()
 # get favorite listings
 @router.get(
     "/favorites/my",
-    response_model=List[ListingCard],
+    response_model=List[ListingCardDetails],
     summary="Get favorite listings of current user",
     description="Fetch all favorite listings of the current user.",
 )
@@ -28,16 +29,20 @@ async def get_favorite_listings(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     listing_service: ListingService = Depends(ListingService.get_dependency),
+    user_latitude: float | None = None,
+    user_longitude: float | None = None,
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
     )
 
-    # return only posted listings that are not removed
-    result = await session.execute(
-        select(Listing)
-        .where(Listing.favorite_by.any(User.id == current_user.id))
-        .where(Listing.listing_status != ListingStatus.REMOVED)
+    # Get the rating subquery from user_service
+    rating_subquery = user_service.get_seller_rating_subquery()
+    rating_val = func.coalesce(rating_subquery.c.avg_rating, 0).label("seller_rating")
+
+    query = (
+        select(Listing, rating_val)
+        .outerjoin(rating_subquery, rating_subquery.c.seller_id == Listing.seller_id)
         .options(
             selectinload(Listing.address),
             selectinload(Listing.categories),
@@ -45,19 +50,38 @@ async def get_favorite_listings(
             selectinload(Listing.favorite_by),
             selectinload(Listing.images),
         )
+        .where(
+            Listing.favorite_by.any(User.id == current_user.id),
+            Listing.listing_status != ListingStatus.REMOVED,
+        )
     )
 
-    listings = result.scalars().all()
+    if user_latitude is not None or user_longitude is not None:
+        if user_latitude is None or user_longitude is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both user latitude and longitude must be provided for location-based filtering.",
+            )
 
-    seller_review_dict = {}
-    for listing in listings:
-        if listing.seller_id not in seller_review_dict:
-            seller_rating = await user_service.get_seller_rating(listing.seller_id)
-            seller_review_dict[listing.seller_id] = seller_rating
+        distance_subquery = listing_service.get_listing_distance_subquery(
+            user_latitude, user_longitude
+        )
+        query = query.add_columns(distance_subquery.c.distance).outerjoin(
+            distance_subquery,
+            distance_subquery.c.listing_id == Listing.id,
+        )
+    else:
+        query = query.add_columns(null().label("distance"))
 
-    presigned_urls = listing_service.get_presigned_urls(listing.images)
+    result = await session.execute(query)
+    listings = result.all()
+
     output_listings: List[ListingCardDetails] = []
-    for listing in listings:
+    for listing, seller_rating, distance in listings:
+        print("----------")
+        print(distance)
+        print("----------")
+        presigned_urls = listing_service.get_presigned_urls(listing.images)
         output_listings.append(
             ListingCardDetails(
                 id=listing.id,
@@ -71,13 +95,14 @@ async def get_favorite_listings(
                     id=listing.seller.id,
                     firstname=listing.seller.firstname,
                     lastname=listing.seller.lastname,
-                    rating=seller_review_dict.get(listing.seller_id),
+                    rating=seller_rating,
                 ),
                 address=listing.address,
                 categories=listing.categories,
                 created_at=listing.created_at,
                 updated_at=listing.updated_at,
                 image_paths=presigned_urls,
+                distance_from_user=distance,
             )
         )
     return output_listings
@@ -87,7 +112,7 @@ async def get_favorite_listings(
 # add listing to favorites
 @router.put(
     "/{listing_id}/favorite",
-    response_model=ListingCard,
+    response_model=ListingCardDetails,
     summary="Add a specific listing to users favorites",
     description="Updates users favorite_listings relationship. You must provide valid listing ID",
 )
@@ -97,6 +122,8 @@ async def add_favorite(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     listing_service: ListingService = Depends(ListingService.get_dependency),
+    user_latitude: float | None = None,
+    user_longitude: float | None = None,
 ):
     # check that listing exists
     result = await session.execute(
@@ -132,7 +159,7 @@ async def add_favorite(
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
     presigned_urls = listing_service.get_presigned_urls(listing.images)
 
-    response = ListingCard(
+    response = ListingCardDetails(
         id=listing.id,
         title=listing.title,
         description=listing.description,
@@ -151,6 +178,12 @@ async def add_favorite(
         created_at=listing.created_at,
         updated_at=listing.updated_at,
         image_paths=presigned_urls,
+        distance_from_user=listing_service.get_user_listing_distance(
+            listing.address.latitude,
+            listing.address.longitude,
+            user_latitude,
+            user_longitude,
+        ),
     )
 
     # add user to DB session
@@ -165,7 +198,7 @@ async def add_favorite(
 # remove listing from favorites
 @router.delete(
     "/{listing_id}/favorite",
-    response_model=ListingCard,
+    response_model=ListingCardDetails,
     summary="Remove a specific listing from users favorites",
     description="Updates users favorite_listings relationship. You must provide valid listing ID",
 )
