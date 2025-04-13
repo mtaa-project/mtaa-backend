@@ -9,7 +9,7 @@ from app.api.dependencies import get_async_session
 from app.models.enums.listing_status import ListingStatus
 from app.models.listing_model import Listing
 from app.models.rent_listing_model import RentListing
-from app.models.sale_lisitng_model import SaleListing
+from app.models.sale_listing_model import SaleListing
 from app.models.user_model import User
 from app.services.user.exceptions import UserEmailNotFound, UserNotFound
 

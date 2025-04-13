@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     db_name: str
     db_host: str
     model_config = SettingsConfigDict(env_file=".env")
+    testing: str | None
 
 
 config = Settings()
