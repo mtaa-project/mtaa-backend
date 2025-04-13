@@ -5,6 +5,7 @@ from .enums.listing_status import ListingStatus
 from .enums.offer_type import OfferType
 from .favorite_listing_model import FavoriteListing
 from .firebase_cloud_token_model import FirebaseCloudToken
+from .listing_image import ListingImage
 from .listing_model import Listing
 from .rent_listing_model import RentListing
 from .sale_listing_model import SaleListing

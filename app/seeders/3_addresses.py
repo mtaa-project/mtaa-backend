@@ -28,8 +28,8 @@ async def seed_addresses():
                 city=fake.city(),
                 street=fake.street_address(),
                 user_id=user.id,
-                latitude=1.2,
-                longitude=2.2,
+                latitude=fake.latitude(),
+                longitude=fake.longitude(),
                 postal_code=fake.postcode(),
             )
             session.add(address)
