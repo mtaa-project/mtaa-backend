@@ -11,6 +11,7 @@ from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
+from app.schemas.address_schema import AddressBase
 from app.schemas.transaction_schema import ListingTransactionBase
 
 
@@ -80,7 +81,7 @@ class ListingCardDetails(ListingCard):
 # schema for listing creation
 class ListingCreate(ListingBase):
     description: str
-    address_id: int  # address visibility is handled in the address model
+    address: AddressBase | None = None  # address info for creating new address
     category_ids: list[int]  # list of category ids
     image_paths: list[str]
 
@@ -90,14 +91,13 @@ class ListingUpdate(SQLModel):
     title: str | None = None
     description: str | None = None
     price: Decimal | None = None
-    listing_status: ListingStatus | None = None
     offer_type: OfferType | None = None
-    address_id: int | None = None
+    address: AddressBase | None = None  # address info for creating new address
     category_ids: list[int] | None = None
     # image_paths: list[str] | None
 
 
-class listingQueryParameters(SQLModel):
+class ListingQueryParameters(SQLModel):
     limit: int = 10
     offset: int = 0
     category_ids: List[int] | None = None
@@ -116,3 +116,8 @@ class listingQueryParameters(SQLModel):
     user_latitude: float | None = None
     user_longitude: float | None = None
     max_distance: float | None = None  # same as radius, in km
+
+
+class ProfileStatistics(SQLModel):
+    total_lent: int = 0
+    total_sold: int = 0
