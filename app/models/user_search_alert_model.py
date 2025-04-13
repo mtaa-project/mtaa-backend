@@ -13,9 +13,8 @@ class UserSearchAlert(SQLModel, table=True):
     __tablename__ = "userSearchAlerts"
 
     id: int = Field(default=None, primary_key=True)
-
+    is_active: bool = Field(default=True)
     product_filters: Dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
-
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_notified_at: datetime | None = Field(
         default=None
