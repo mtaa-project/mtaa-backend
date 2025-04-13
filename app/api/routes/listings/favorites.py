@@ -13,6 +13,7 @@ from app.schemas.listing_schema import (
     ListingCardDetails,
     SellerInfoCard,
 )
+from app.services.listing.listing_service import ListingService
 from app.services.user.user_service import UserService
 
 router = APIRouter()
@@ -29,6 +30,7 @@ async def get_favorite_listings(
     *,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
@@ -44,6 +46,7 @@ async def get_favorite_listings(
             selectinload(Listing.categories),
             selectinload(Listing.seller),
             selectinload(Listing.favorite_by),
+            selectinload(Listing.images),
         )
     )
 
@@ -55,6 +58,7 @@ async def get_favorite_listings(
             seller_rating = await user_service.get_seller_rating(listing.seller_id)
             seller_review_dict[listing.seller_id] = seller_rating
 
+    presigned_urls = listing_service.get_presigned_urls(listing.images)
     output_listings: List[ListingCardDetails] = []
     for listing in listings:
         output_listings.append(
@@ -76,7 +80,7 @@ async def get_favorite_listings(
                 categories=listing.categories,
                 created_at=listing.created_at,
                 updated_at=listing.updated_at,
-                image_paths=[""],
+                image_paths=presigned_urls,
             )
         )
     return output_listings
@@ -95,6 +99,7 @@ async def add_favorite(
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     # check that listing exists
     result = await session.execute(
@@ -104,6 +109,7 @@ async def add_favorite(
             selectinload(Listing.address),
             selectinload(Listing.categories),
             selectinload(Listing.seller),
+            selectinload(Listing.images),
         )
     )
     listing = result.scalars().one_or_none()
@@ -127,6 +133,7 @@ async def add_favorite(
 
     current_user.favorite_listings.append(listing)
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
+    presigned_urls = listing_service.get_presigned_urls(listing.images)
 
     response = ListingCardDetails(
         id=listing.id,
@@ -146,7 +153,7 @@ async def add_favorite(
         categories=listing.categories,
         created_at=listing.created_at,
         updated_at=listing.updated_at,
-        image_paths=[""],
+        image_paths=presigned_urls,
     )
 
     # add user to DB session
@@ -170,6 +177,7 @@ async def remove_favorite(
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     # check that listing exists
     result = await session.execute(
@@ -179,6 +187,7 @@ async def remove_favorite(
             selectinload(Listing.address),
             selectinload(Listing.categories),
             selectinload(Listing.seller),
+            selectinload(Listing.images),
         )
     )
     listing = result.scalars().one_or_none()
@@ -203,7 +212,7 @@ async def remove_favorite(
 
     current_user.favorite_listings.remove(listing)
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
-
+    presigned_urls = listing_service.get_presigned_urls(listing.images)
     response = ListingCardDetails(
         id=listing.id,
         title=listing.title,
@@ -222,7 +231,7 @@ async def remove_favorite(
         categories=listing.categories,
         created_at=listing.created_at,
         updated_at=listing.updated_at,
-        image_paths=[""],
+        image_paths=presigned_urls,
     )
 
     # add user to DB session
