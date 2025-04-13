@@ -46,7 +46,7 @@ async def create_listing(
     current_user = await user_service.get_current_user()
 
     # check that address exists
-    if new_listing_data.address_id:
+    if new_listing_data.address_id is not None:
         address = await session.get(Address, new_listing_data.address_id)
         if not address:
             raise HTTPException(
@@ -56,7 +56,7 @@ async def create_listing(
 
     # check that categories exist and collect them
     category_objs = []
-    if new_listing_data.category_ids:
+    if new_listing_data.category_ids is not None:
         for category_id in new_listing_data.category_ids:
             category = await session.get(Category, category_id)
             if not category:
@@ -183,7 +183,7 @@ async def get_listings_by_params(
     )
 
     # check that categories exists
-    if params.category_ids:
+    if params.category_ids is not None:
         for category_id in params.category_ids:
             category = await session.get(Category, category_id)
             if not category:
@@ -221,22 +221,43 @@ async def get_listings_by_params(
     )
 
     # Filtering:
-    if params.category_ids:
+    if params.category_ids is not None:
         query = query.where(
             Listing.categories.any(Category.id.in_(params.category_ids))
         )
-    if params.offer_type:
+    if params.offer_type is not None:
         query = query.where(Listing.offer_type == params.offer_type)
-    if params.listing_status:
+    if params.listing_status is not None:
         query = query.where(Listing.listing_status == params.listing_status)
-    if params.min_price:
+    if params.min_price is not None:
         query = query.where(Listing.price >= params.min_price)
-    if params.max_price:
+    if params.max_price is not None:
         query = query.where(Listing.price <= params.max_price)
-    if params.search:
+    if params.search is not None:
         query = query.where(Listing.title.ilike(f"%{params.search}%"))
-    if params.min_rating:
+    if params.min_rating is not None:
         query = query.where(rating_expr >= params.min_rating)
+
+    # Location filtering:
+    if params.user_latitude is not None or params.user_longitude is not None:
+        if params.user_latitude is None or params.user_longitude is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both user latitude and longitude must be provided for location-based filtering.",
+            )
+
+        distance_subquery = listing_service.get_listing_distance_subquery(
+            params.user_latitude, params.user_longitude
+        )
+        query = query.outerjoin(
+            distance_subquery, distance_subquery.c.listing_id == Listing.id
+        )
+
+        # Add distance to the select statement
+        query = query.add_columns(distance_subquery.c.distance)
+
+        if params.max_distance:
+            query = query.where(distance_subquery.c.distance <= params.max_distance)
 
     # Sorting:
     # TODO: sort by location
@@ -244,8 +265,17 @@ async def get_listings_by_params(
         "created_at": Listing.created_at,
         "updated_at": Listing.updated_at,
         "price": Listing.price,
-        "rating": rating_expr,
+        "rating": query.c.seller_rating,
+        "location": query.c.distance,
     }
+
+    if params.sort_by == "location" and (
+        params.user_latitude is None or params.user_longitude is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location sorting requires user latitude and longitude.",
+        )
 
     if params.sort_order == "asc":
         query = query.order_by(
@@ -266,7 +296,11 @@ async def get_listings_by_params(
     output_listings: List[ListingCardDetails] = []
 
     # Iterate through the results and create the response
-    for listing, seller_rating in listings:
+    for row in listings:
+        if params.user_latitude is not None and params.user_longitude is not None:
+            listing, seller_rating, distance = row
+        else:
+            listing, seller_rating = row
         seller_rating = round(seller_rating, 2) if seller_rating else None
         presigned_urls = listing_service.get_presigned_urls(listing.images)
         output_listings.append(
@@ -289,6 +323,10 @@ async def get_listings_by_params(
                 created_at=listing.created_at,
                 updated_at=listing.updated_at,
                 image_paths=presigned_urls,
+                distance_from_user=distance
+                if params.user_latitude is not None
+                and params.user_longitude is not None
+                else None,
             )
         )
 
@@ -297,6 +335,7 @@ async def get_listings_by_params(
 
 # TESTED for getting specific listing by id
 # get specific listing by id
+# TODO: add a way to show distance from user -> would probably be best to add user latitude and longitude to the query parameters
 @router.get(
     "/{listing_id}",
     response_model=ListingCardDetails,
@@ -309,6 +348,8 @@ async def get_listing(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     listing_service: ListingService = Depends(ListingService.get_dependency),
+    user_latitude: float | None = None,
+    user_longitude: float | None = None,
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
@@ -325,6 +366,20 @@ async def get_listing(
         .where(Listing.id == listing_id)
     )
     listing = result.scalars().one_or_none()
+
+    if user_latitude is not None or user_longitude is not None:
+        if user_latitude is None or user_longitude is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both user latitude and longitude must be provided for location-based filtering.",
+            )
+        # Calculate distance from user
+        distance = listing_service.get_listing_distance_subquery(
+            user_latitude,
+            user_longitude,
+            listing.address.latitude,
+            listing.address.longitude,
+        )
 
     if not listing:
         raise HTTPException(
@@ -362,6 +417,9 @@ async def get_listing(
         created_at=listing.created_at,
         updated_at=listing.updated_at,
         image_paths=presigned_urls,
+        distance_from_user=distance
+        if user_latitude is not None and user_longitude is not None
+        else None,  # Only include distance if user coordinates are provided
     )
 
     return response
@@ -430,7 +488,7 @@ async def update_listing(
         listing.address = address
 
     # check that categories exist
-    if updated_listing_data.category_ids:
+    if updated_listing_data.category_ids is not None:
         category_objs = []
         for category_id in updated_listing_data.category_ids:
             category = await session.get(Category, category_id)
