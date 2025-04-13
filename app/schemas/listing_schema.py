@@ -113,5 +113,8 @@ class listingQueryParameters(SQLModel):
     sort_by: str = "created_at"  # updated_at, price, rating, location
     sort_order: str = "desc"  # asc, desc
     search: str | None = None
-    search_location: str | None = None
-    search_radius: int | None = None
+
+    # location based search
+    latitude: float | None = None
+    longitude: float | None = None
+    max_distance: float | None = None  # same as radius, in km
