@@ -2,10 +2,8 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import File, UploadFile
-from pydantic import conlist
+from pydantic_extra_types.country import CountryAlpha2
 from sqlmodel import Field, SQLModel
-from typing_extensions import Annotated
 
 from app.models.address_model import Address
 from app.models.category_model import Category
@@ -113,6 +111,9 @@ class ListingQueryParameters(SQLModel):
     search: str | None = None
 
     # location based search
+    country: CountryAlpha2 | None = Field(default=None, max_length=2)
+    city: str | None = Field(default=None, max_length=255)
+    street: str | None = Field(default=None, max_length=255)
     user_latitude: float | None = None
     user_longitude: float | None = None
     max_distance: float | None = None  # same as radius, in km
