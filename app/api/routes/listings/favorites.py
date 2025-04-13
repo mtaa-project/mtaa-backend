@@ -144,6 +144,23 @@ async def add_favorite(
             detail=f"Listing with ID {listing_id} not found.",
         )
 
+    # check that both latitude and longitude are provided
+    distance = None
+    if user_latitude is not None or user_longitude is not None:
+        if user_latitude is None or user_longitude is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both user latitude and longitude must be provided for location-based filtering.",
+            )
+        distance = (
+            listing_service.get_user_listing_distance(
+                listing.address.latitude,
+                listing.address.longitude,
+                user_latitude,
+                user_longitude,
+            ),
+        )
+
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
     )
@@ -178,12 +195,7 @@ async def add_favorite(
         created_at=listing.created_at,
         updated_at=listing.updated_at,
         image_paths=presigned_urls,
-        distance_from_user=listing_service.get_user_listing_distance(
-            listing.address.latitude,
-            listing.address.longitude,
-            user_latitude,
-            user_longitude,
-        ),
+        distance_from_user=distance,
     )
 
     # add user to DB session
