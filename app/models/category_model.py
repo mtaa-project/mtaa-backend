@@ -1,7 +1,11 @@
+from typing import TYPE_CHECKING
+
 from sqlmodel import Field, Relationship, SQLModel
 
 from .category_listing_model import CategoryListing
-from .listing_model import Listing
+
+if TYPE_CHECKING:
+    from .listing_model import Listing
 
 
 class Category(SQLModel, table=True):
