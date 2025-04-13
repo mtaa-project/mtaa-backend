@@ -237,13 +237,13 @@ async def get_listings_by_params(
     listings = await session.execute(query)
     listings: Tuple[Listing, int] = listings.all()
 
-    output_listings: List[ListingCardDetails] = []
+    output_listings: List[ListingCard] = []
 
     # Iterate through the results and create the response
     for listing, seller_rating in listings:
         seller_rating = round(seller_rating, 2) if seller_rating else None
         output_listings.append(
-            ListingCardDetails(
+            ListingCard(
                 id=listing.id,
                 title=listing.title,
                 description=listing.description,
@@ -271,7 +271,7 @@ async def get_listings_by_params(
 # get specific listing by id
 @router.get(
     "/{listing_id}",
-    response_model=ListingCardDetails,
+    response_model=ListingCard,
     summary="Get a listing by ID",
     description="Fetch a specific listing by ID unless its status is REMOVED.",
 )
@@ -310,7 +310,7 @@ async def get_listing(
         )
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
 
-    response = ListingCardDetails(
+    response = ListingCard(
         id=listing.id,
         title=listing.title,
         description=listing.description,
@@ -337,7 +337,7 @@ async def get_listing(
 # update listing
 @router.put(
     "/{listing_id}",
-    # response_model=ListingCardDetails,
+    response_model=ListingCard,
     summary="Update an existing listing",
     description="Updates listing fields and category relationships. You must provide valid address/category IDs.",
 )
@@ -417,7 +417,7 @@ async def update_listing(
 
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
 
-    response = ListingCardDetails(
+    response = ListingCard(
         id=listing.id,
         title=listing.title,
         description=listing.description,
