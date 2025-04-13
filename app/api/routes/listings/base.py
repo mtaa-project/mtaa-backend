@@ -1,8 +1,9 @@
-from typing import Annotated, List
+from typing import Annotated, List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql import func
 from sqlmodel import asc, desc, select
 
 from app.api.dependencies import get_async_session
@@ -10,9 +11,8 @@ from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.listing_model import Listing
-from app.models.user_model import User
 from app.schemas.listing_schema import (
-    ListingCardDetails,
+    ListingCard,
     ListingCardProfile,
     ListingCreate,
     ListingUpdate,
@@ -29,7 +29,7 @@ router = APIRouter()
 # create listing
 @router.post(
     "/",
-    response_model=ListingCardDetails,
+    response_model=ListingCard,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new listing",
     description="Creates a listing with optional address and category assignments. Requires a valid seller ID.",
@@ -82,7 +82,7 @@ async def create_listing(
 
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
 
-    response = ListingCardDetails(
+    response = ListingCard(
         id=listing.id,
         title=listing.title,
         description=listing.description,
@@ -143,7 +143,7 @@ async def get_my_listings(
 # get listings with specific categories, price, status, offer type, and (address)
 @router.get(
     "/",
-    response_model=List[ListingCardDetails],
+    response_model=List[ListingCard],
     summary="Filter and list listings",
     description="Retrieve listings by categories, price range, offer type, .... Listings with status REMOVED are excluded.",
 )
@@ -174,15 +174,27 @@ async def get_listings_by_params(
             detail="Listing status cannot be REMOVED when filtering listings.",
         )
 
-    # build query
-    query = select(Listing).options(
-        selectinload(Listing.seller),
-        selectinload(Listing.categories),
-        selectinload(Listing.address),
-    )
-    # Remove REMOVED & HIDDEN listings
-    query = query.where(Listing.listing_status == ListingStatus.ACTIVE)
+    # Get the rating subquery from user_service
+    rating_subquery = user_service.get_seller_rating_subquery()
 
+    rating_expr = func.coalesce(rating_subquery.c.avg_rating, 0).label("seller_rating")
+
+    # build query
+    query = (
+        select(Listing, rating_expr)
+        .outerjoin(
+            rating_subquery,
+            rating_subquery.c.seller_id == Listing.seller_id,
+        )
+        .options(
+            selectinload(Listing.seller),
+            selectinload(Listing.categories),
+            selectinload(Listing.address),
+        )
+        .where(Listing.listing_status == ListingStatus.ACTIVE)  # only active listings
+    )
+
+    # Filtering:
     if params.category_ids:
         query = query.where(
             Listing.categories.any(Category.id.in_(params.category_ids))
@@ -195,10 +207,10 @@ async def get_listings_by_params(
         query = query.where(Listing.price >= params.min_price)
     if params.max_price:
         query = query.where(Listing.price <= params.max_price)
-
-    # Searching:
     if params.search:
         query = query.where(Listing.title.ilike(f"%{params.search}%"))
+    if params.min_rating:
+        query = query.where(rating_expr >= params.min_rating)
 
     # Sorting:
     # TODO: sort by location
@@ -206,6 +218,7 @@ async def get_listings_by_params(
         "created_at": Listing.created_at,
         "updated_at": Listing.updated_at,
         "price": Listing.price,
+        "rating": rating_expr,
     }
 
     if params.sort_order == "asc":
@@ -217,39 +230,18 @@ async def get_listings_by_params(
             desc(sort_columns.get(params.sort_by, Listing.updated_at))
         )
 
+    # Pagination:
+    query = query.limit(params.limit).offset(params.offset)
+
+    # Execute the query
     listings = await session.execute(query)
-    listings = listings.scalars().all()
+    listings: Tuple[Listing, int] = listings.all()
 
     output_listings: List[ListingCardDetails] = []
 
-    seller_review_dict = {}
-    for listing in listings:
-        if listing.seller_id not in seller_review_dict:
-            seller_rating = await user_service.get_seller_rating(listing.seller_id)
-
-            seller_review_dict[listing.seller_id] = seller_rating
-
-    # Treats None in listing as 0
-    if params.min_rating:
-        listings = [
-            listing
-            for listing in listings
-            if (seller_review_dict.get(listing.seller_id) or 0) >= params.min_rating
-        ]
-
-    if params.sort_by == "rating":
-        listings.sort(
-            key=lambda listing: seller_review_dict.get(listing.seller_id),
-            reverse=(params.sort_order == "desc"),
-        )
-
-    # TODO: Check if this can be done faster for better performance
-    # Limiting + Offset for pagination:
-    listings = listings[params.offset : params.offset + params.limit]
-
-    favorites_dict = {fav.id: fav for fav in current_user.favorite_listings}
-
-    for listing in listings:
+    # Iterate through the results and create the response
+    for listing, seller_rating in listings:
+        seller_rating = round(seller_rating, 2) if seller_rating else None
         output_listings.append(
             ListingCardDetails(
                 id=listing.id,
@@ -258,12 +250,12 @@ async def get_listings_by_params(
                 price=listing.price,
                 listing_status=listing.listing_status,
                 offer_type=listing.offer_type,
-                liked=listing.id in favorites_dict,
+                liked=listing in current_user.favorite_listings,
                 seller=SellerInfoCard(
                     id=listing.seller.id,
                     firstname=listing.seller.firstname,
                     lastname=listing.seller.lastname,
-                    rating=seller_review_dict.get(listing.seller_id),
+                    rating=seller_rating,
                 ),
                 address=listing.address,
                 categories=listing.categories,
