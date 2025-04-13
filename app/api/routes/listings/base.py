@@ -308,6 +308,12 @@ async def get_listings_by_params(
         )
     if params.min_rating is not None:
         query = query.where(rating_val >= params.min_rating)
+    if params.country is not None:
+        query = query.where(Listing.address.has(Address.country == params.country))
+    if params.city is not None:
+        query = query.where(Listing.address.has(Address.city == params.city))
+    if params.street is not None:
+        query = query.where(Listing.address.has(Address.street == params.street))
 
     # Location filtering and calculating:
     if params.user_latitude is not None or params.user_longitude is not None:
@@ -339,16 +345,22 @@ async def get_listings_by_params(
         "updated_at": Listing.updated_at,
         "price": Listing.price,
         "rating": rating_val,
-        "location": distance_subquery.c.distance,
     }
+    if params.user_latitude is not None and params.user_longitude is not None:
+        sort_columns["location"] = distance_subquery.c.distance
 
     if params.sort_order == "asc":
         query = query.order_by(
             asc(sort_columns.get(params.sort_by, Listing.updated_at))
         )
-    else:
+    elif params.sort_order == "desc":
         query = query.order_by(
             desc(sort_columns.get(params.sort_by, Listing.updated_at))
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid sort_order parameter. Allowed values are: asc, desc.",
         )
 
     # Pagination:
@@ -393,7 +405,6 @@ async def get_listings_by_params(
 
 # TESTED for getting specific listing by id
 # get specific listing by id
-# TODO: add a way to show distance from user -> would probably be best to add user latitude and longitude to the query parameters
 @router.get(
     "/{listing_id}",
     response_model=ListingCardDetails,
