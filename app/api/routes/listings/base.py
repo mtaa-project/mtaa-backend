@@ -1,6 +1,7 @@
 from typing import Annotated, List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import null
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql import func
@@ -202,11 +203,11 @@ async def get_listings_by_params(
     # Get the rating subquery from user_service
     rating_subquery = user_service.get_seller_rating_subquery()
 
-    rating_expr = func.coalesce(rating_subquery.c.avg_rating, 0).label("seller_rating")
+    rating_val = func.coalesce(rating_subquery.c.avg_rating, 0).label("seller_rating")
 
     # build query
     query = (
-        select(Listing, rating_expr)
+        select(Listing, rating_val)
         .outerjoin(
             rating_subquery,
             rating_subquery.c.seller_id == Listing.seller_id,
@@ -236,7 +237,7 @@ async def get_listings_by_params(
     if params.search is not None:
         query = query.where(Listing.title.ilike(f"%{params.search}%"))
     if params.min_rating is not None:
-        query = query.where(rating_expr >= params.min_rating)
+        query = query.where(rating_val >= params.min_rating)
 
     # Location filtering:
     if params.user_latitude is not None or params.user_longitude is not None:
@@ -258,6 +259,9 @@ async def get_listings_by_params(
 
         if params.max_distance:
             query = query.where(distance_subquery.c.distance <= params.max_distance)
+    else:
+        # fill the distance column with None if user coordinates are not provided
+        query = query.add_columns(null().label("distance"))
 
     # Sorting:
     # TODO: sort by location
@@ -296,11 +300,7 @@ async def get_listings_by_params(
     output_listings: List[ListingCardDetails] = []
 
     # Iterate through the results and create the response
-    for row in listings:
-        if params.user_latitude is not None and params.user_longitude is not None:
-            listing, seller_rating, distance = row
-        else:
-            listing, seller_rating = row
+    for listing, seller_rating, distance in listings:
         seller_rating = round(seller_rating, 2) if seller_rating else None
         presigned_urls = listing_service.get_presigned_urls(listing.images)
         output_listings.append(
@@ -323,10 +323,7 @@ async def get_listings_by_params(
                 created_at=listing.created_at,
                 updated_at=listing.updated_at,
                 image_paths=presigned_urls,
-                distance_from_user=distance
-                if params.user_latitude is not None
-                and params.user_longitude is not None
-                else None,
+                distance_from_user=distance,
             )
         )
 
@@ -367,6 +364,12 @@ async def get_listing(
     )
     listing = result.scalars().one_or_none()
 
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} not found.",
+        )
+
     if user_latitude is not None or user_longitude is not None:
         if user_latitude is None or user_longitude is None:
             raise HTTPException(
@@ -374,18 +377,14 @@ async def get_listing(
                 detail="Both user latitude and longitude must be provided for location-based filtering.",
             )
         # Calculate distance from user
-        distance = listing_service.get_listing_distance_subquery(
+        distance = listing_service.get_user_listing_distance(
             user_latitude,
             user_longitude,
             listing.address.latitude,
             listing.address.longitude,
         )
-
-    if not listing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Listing with ID {listing_id} not found.",
-        )
+    else:
+        distance = None
 
     # check that listing is not removed
     if listing.listing_status == ListingStatus.REMOVED:
@@ -417,9 +416,7 @@ async def get_listing(
         created_at=listing.created_at,
         updated_at=listing.updated_at,
         image_paths=presigned_urls,
-        distance_from_user=distance
-        if user_latitude is not None and user_longitude is not None
-        else None,  # Only include distance if user coordinates are provided
+        distance_from_user=distance,
     )
 
     return response
