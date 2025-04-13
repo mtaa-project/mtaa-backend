@@ -63,8 +63,8 @@ async def create_listing(
     if new_listing_data.address is not None:
         # create new address
         address_data = new_listing_data.address.model_dump(exclude_none=True)
+        address_data["user_id"] = current_user.id
         address = Address.model_validate(address_data)
-        address.user_id = current_user.id
 
         session.add(address)
         await session.commit()
