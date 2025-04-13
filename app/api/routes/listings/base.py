@@ -29,7 +29,6 @@ from app.services.user.user_service import UserService
 router = APIRouter()
 
 
-# TODO: change this so that pictures can be uploaded, change response model, and change ListingCreate schema to take pictures
 # TESTED for listing creation
 # create listing
 @router.post(
@@ -44,6 +43,9 @@ async def create_listing(
     new_listing_data: ListingCreate,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
+    user_latitude: float | None = None,
+    user_longitude: float | None = None,
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
@@ -120,6 +122,21 @@ async def create_listing(
 
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
 
+    # check that both latitude and longitude are provided
+    distance = None
+    if user_latitude is not None or user_longitude is not None:
+        if user_latitude is None or user_longitude is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both user latitude and longitude must be provided for location-based filtering.",
+            )
+        distance = listing_service.get_user_listing_distance(
+            listing.address.latitude,
+            listing.address.longitude,
+            user_latitude,
+            user_longitude,
+        )
+
     response = ListingCardDetails(
         id=listing.id,
         title=listing.title,
@@ -140,6 +157,7 @@ async def create_listing(
         created_at=listing.created_at,
         updated_at=listing.updated_at,
         image_paths=image_paths,
+        distance_from_user=distance,
     )
 
     return response
@@ -410,6 +428,7 @@ async def get_listing(
             detail=f"Listing with ID {listing_id} not found.",
         )
 
+    distance = None
     if user_latitude is not None or user_longitude is not None:
         if user_latitude is None or user_longitude is None:
             raise HTTPException(
@@ -423,8 +442,6 @@ async def get_listing(
             listing.address.latitude,
             listing.address.longitude,
         )
-    else:
-        distance = None
 
     # check that listing is not removed
     if listing.listing_status == ListingStatus.REMOVED:
