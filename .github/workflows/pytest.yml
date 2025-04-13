@@ -36,5 +36,9 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev -v
 
+      - name: Create Firebase Service Account File
+        run: |
+          echo "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}" > firebase_config.json
+
       - name: Run tests
         run: uv run pytest

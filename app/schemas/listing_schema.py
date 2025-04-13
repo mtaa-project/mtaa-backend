@@ -46,6 +46,7 @@ class ListingCardProfile(ListingBase):
 
 
 class ListingCardCreate(ListingBase):
+    id: int
     image_paths: list[str]
 
 

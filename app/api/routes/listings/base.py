@@ -31,7 +31,7 @@ router = APIRouter()
 # create listing
 @router.post(
     "/",
-    response_model=ListingCardCreate,
+    response_model=ListingCardDetails,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new listing",
     description="Creates a listing with optional address and category assignments. Requires a valid seller ID.",

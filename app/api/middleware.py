@@ -9,7 +9,7 @@ firebase_app = None
 
 def init_firebase():
     global firebase_app
-    if not _apps and os.getenv("TESTING") != "1":
+    if not _apps:
         cred = credentials.Certificate("mtaa-project-service-account.json")
         firebase_app = initialize_app(
             cred, {"storageBucket": "mtaa-project-5235a.firebasestorage.app"}
