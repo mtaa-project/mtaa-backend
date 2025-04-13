@@ -152,13 +152,11 @@ async def add_favorite(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Both user latitude and longitude must be provided for location-based filtering.",
             )
-        distance = (
-            listing_service.get_user_listing_distance(
-                listing.address.latitude,
-                listing.address.longitude,
-                user_latitude,
-                user_longitude,
-            ),
+        distance = listing_service.get_user_listing_distance(
+            listing.address.latitude,
+            listing.address.longitude,
+            user_latitude,
+            user_longitude,
         )
 
     current_user = await user_service.get_current_user(
