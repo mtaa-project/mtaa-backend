@@ -146,6 +146,7 @@ class ListingService:
         return distance_subquery
 
     def get_user_listing_distance(
+        self,
         user_latitude: float,
         user_longitude: float,
         listing_latitude: float,
