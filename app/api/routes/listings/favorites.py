@@ -9,10 +9,7 @@ from app.api.dependencies import get_async_session
 from app.models.enums.listing_status import ListingStatus
 from app.models.listing_model import Listing
 from app.models.user_model import User
-from app.schemas.listing_schema import (
-    ListingCardDetails,
-    SellerInfoCard,
-)
+from app.schemas.listing_schema import ListingCard, SellerInfoCard
 from app.services.user.user_service import UserService
 
 router = APIRouter()
@@ -21,7 +18,7 @@ router = APIRouter()
 # get favorite listings
 @router.get(
     "/favorites/my",
-    # response_model=List[ListingCardDetails],
+    response_model=List[ListingCard],
     summary="Get favorite listings of current user",
     description="Fetch all favorite listings of the current user.",
 )
@@ -55,10 +52,10 @@ async def get_favorite_listings(
             seller_rating = await user_service.get_seller_rating(listing.seller_id)
             seller_review_dict[listing.seller_id] = seller_rating
 
-    output_listings: List[ListingCardDetails] = []
+    output_listings: List[ListingCard] = []
     for listing in listings:
         output_listings.append(
-            ListingCardDetails(
+            ListingCard(
                 id=listing.id,
                 title=listing.title,
                 description=listing.description,
@@ -85,7 +82,7 @@ async def get_favorite_listings(
 # add listing to favorites
 @router.put(
     "/{listing_id}/favorite",
-    response_model=ListingCardDetails,
+    response_model=ListingCard,
     summary="Add a specific listing to users favorites",
     description="Updates users favorite_listings relationship. You must provide valid listing ID",
 )
@@ -127,7 +124,7 @@ async def add_favorite(
     current_user.favorite_listings.append(listing)
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
 
-    response = ListingCardDetails(
+    response = ListingCard(
         id=listing.id,
         title=listing.title,
         description=listing.description,
@@ -159,7 +156,7 @@ async def add_favorite(
 # remove listing from favorites
 @router.delete(
     "/{listing_id}/favorite",
-    response_model=ListingCardDetails,
+    response_model=ListingCard,
     summary="Remove a specific listing from users favorites",
     description="Updates users favorite_listings relationship. You must provide valid listing ID",
 )
@@ -202,7 +199,7 @@ async def remove_favorite(
     current_user.favorite_listings.remove(listing)
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
 
-    response = ListingCardDetails(
+    response = ListingCard(
         id=listing.id,
         title=listing.title,
         description=listing.description,
