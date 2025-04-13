@@ -228,9 +228,30 @@ async def get_listings_by_params(
             detail="Listing status cannot be REMOVED when filtering listings.",
         )
 
+    # check that params sort_by is valid
+    if params.sort_by not in [
+        "created_at",
+        "updated_at",
+        "price",
+        "rating",
+        "location",
+    ]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid sort_by parameter. Allowed values are: created_at, updated_at, price, rating, location.",
+        )
+
+    # check that user coordinates are provided if max_distance is set or sorting by location
+    if (params.max_distance is not None or params.sort_by == "location") and (
+        params.user_latitude is None or params.user_longitude is None
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Both user latitude and longitude must be provided for location-based filtering.",
+        )
+
     # Get the rating subquery from user_service
     rating_subquery = user_service.get_seller_rating_subquery()
-
     rating_val = func.coalesce(rating_subquery.c.avg_rating, 0).label("seller_rating")
 
     # build query
@@ -267,7 +288,7 @@ async def get_listings_by_params(
     if params.min_rating is not None:
         query = query.where(rating_val >= params.min_rating)
 
-    # Location filtering:
+    # Location filtering and calculating:
     if params.user_latitude is not None or params.user_longitude is not None:
         if params.user_latitude is None or params.user_longitude is None:
             raise HTTPException(
@@ -285,14 +306,13 @@ async def get_listings_by_params(
         # Add distance to the select statement
         query = query.add_columns(distance_subquery.c.distance)
 
-        if params.max_distance:
+        if params.max_distance is not None:
             query = query.where(distance_subquery.c.distance <= params.max_distance)
     else:
         # fill the distance column with None if user coordinates are not provided
         query = query.add_columns(null().label("distance"))
 
     # Sorting:
-    # TODO: sort by location
     sort_columns = {
         "created_at": Listing.created_at,
         "updated_at": Listing.updated_at,
@@ -300,14 +320,6 @@ async def get_listings_by_params(
         "rating": query.c.seller_rating,
         "location": query.c.distance,
     }
-
-    if params.sort_by == "location" and (
-        params.user_latitude is None or params.user_longitude is None
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Location sorting requires user latitude and longitude.",
-        )
 
     if params.sort_order == "asc":
         query = query.order_by(
