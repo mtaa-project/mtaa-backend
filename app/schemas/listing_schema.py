@@ -2,7 +2,10 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
+from fastapi import File, UploadFile
+from pydantic import conlist
 from sqlmodel import Field, SQLModel
+from typing_extensions import Annotated
 
 from app.models.address_model import Address
 from app.models.category_model import Category
@@ -25,21 +28,6 @@ class SellerInfoExpanded(SellerInfoCard):
     email: str
 
 
-# Schema for images of listings used in listing cards and listing details
-# class ListingImage(SQLModel):
-#     id: int
-#     url: str
-#     description: str | None = None
-#     listing_id: int
-#     is_primary: bool = True
-
-# class ListingBase(SQLModel):
-#     title: str
-#     price: Decimal
-#     listing_status: ListingStatus
-#     offer_type: OfferType
-
-
 # Basic schema for listing data
 class ListingBase(SQLModel, ListingTransactionBase):
     listing_status: ListingStatus
@@ -54,6 +42,12 @@ class ListingCardProfile(ListingBase):
     address: Address
     created_at: datetime
     updated_at: datetime
+    image_path: str
+
+
+class ListingCardCreate(ListingBase):
+    id: int
+    image_paths: list[str]
 
 
 # Schema for displaying listing data in medium and big cards
@@ -79,6 +73,7 @@ class ListingCard(ListingBase):
 # this is used to read listing data from the database
 class ListingCardDetails(ListingCard):
     description: str
+    image_paths: list[str]
 
 
 # schema for listing creation
@@ -86,6 +81,7 @@ class ListingCreate(ListingBase):
     description: str
     address_id: int  # address visibility is handled in the address model
     category_ids: list[int]  # list of category ids
+    image_paths: list[str]
 
 
 # schema for listing update
@@ -97,6 +93,7 @@ class ListingUpdate(SQLModel):
     offer_type: OfferType | None = None
     address_id: int | None = None
     category_ids: list[int] | None = None
+    # image_paths: list[str] | None
 
 
 class listingQueryParameters(SQLModel):
