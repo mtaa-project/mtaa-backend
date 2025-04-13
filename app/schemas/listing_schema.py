@@ -11,6 +11,7 @@ from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
+from app.schemas.address_schema import AddressBase
 from app.schemas.transaction_schema import ListingTransactionBase
 
 
