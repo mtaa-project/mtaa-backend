@@ -95,15 +95,13 @@ class ListingUpdate(SQLModel):
     # image_paths: list[str] | None
 
 
-class ListingQueryParameters(SQLModel):
-    limit: int = 10
-    offset: int = 0
+class AlertQuery(SQLModel):
     category_ids: List[int] | None = None
     offer_type: OfferType  # filter by offer type: RENT, SELL (BOTH is NOT supported)
     listing_status: ListingStatus = ListingStatus.ACTIVE
-    min_price: int | None = None
-    max_price: int | None = None
-    min_rating: float | None = None
+    min_price: int | None = Field(default=None, ge=0)
+    max_price: int | None = Field(default=None, ge=0)
+    min_rating: float | None = Field(default=None, ge=0)
     time_from: datetime | None = None  # filter by timestamp
 
     # sort by options
@@ -115,11 +113,16 @@ class ListingQueryParameters(SQLModel):
     country: CountryAlpha2 | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
     street: str | None = Field(default=None, max_length=255)
+
+
+class ListingQueryParameters(AlertQuery):
+    limit: int = 10
+    offset: int = 0
     user_latitude: float | None = None
     user_longitude: float | None = None
     max_distance: float | None = None  # same as radius, in km
 
 
 class ProfileStatistics(SQLModel):
-    total_lent: int = 0
-    total_sold: int = 0
+    total_lent: int = Field(default=0, ge=0)
+    total_sold: int = Field(default=0, ge=0)
