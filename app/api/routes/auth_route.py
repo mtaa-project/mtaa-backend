@@ -78,10 +78,6 @@ async def google_auth(
     result = await session.execute(select(User).where(User.email == firebase_email))
     db_user = result.scalar_one_or_none()
 
-    print("data:")
-    print(data)
-    print(8 * "-")
-
     if not db_user:
         new_user = User(
             firstname=data.firstname,
@@ -108,10 +104,6 @@ async def facebook_auth(
 
     result = await session.execute(select(User).where(User.email == firebase_email))
     db_user = result.scalar_one_or_none()
-
-    print("data:")
-    print(data)
-    print(8 * "-")
 
     if not db_user:
         new_user = User(

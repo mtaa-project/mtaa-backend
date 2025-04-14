@@ -89,24 +89,23 @@ async def update_profile(
 
     current_user = await user_service.get_current_user()
 
-    async with session.begin():
-        user_address = await session.execute(
-            select(Address).where(
-                Address.user_id == current_user.id, Address.is_primary == True
-            )
+    user_address = await session.execute(
+        select(Address).where(
+            Address.user_id == current_user.id, Address.is_primary == True
         )
-        db_address = user_address.scalars().one_or_none()
-        # create user address
-        if db_address is None:
-            address_data["is_primary"] = True
-            address_data["user_id"] = current_user.id
-            db_address = Address.model_validate(address_data)
-        # update user address
-        else:
-            db_address.sqlmodel_update(address_data)
+    )
+    db_address = user_address.scalars().one_or_none()
+    # create user address
+    if db_address is None:
+        address_data["is_primary"] = True
+        address_data["user_id"] = current_user.id
+        db_address = Address.model_validate(address_data)
+    # update user address
+    else:
+        db_address.sqlmodel_update(address_data)
 
-        db_user = current_user.sqlmodel_update(user_data)
-        session.add_all([db_address, db_user])
+    db_user = current_user.sqlmodel_update(user_data)
+    session.add_all([db_address, db_user])
 
     await session.commit()
     await session.refresh(db_address)
