@@ -1,16 +1,7 @@
-from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 from sqlmodel import Field
-
-from app.models.enums.listing_status import ListingStatus
-from app.models.enums.offer_type import OfferType
-
-if TYPE_CHECKING:
-    from app.models.address_model import Address
-    from app.models.category_model import Category
 
 
 class ListingTransactionBase(BaseModel):
