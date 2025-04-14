@@ -23,5 +23,7 @@ class RentListing(SQLModel, ListingTransactionBase, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(TIMESTAMP(timezone=True), nullable=False),
     )
-    end_date: datetime | None = Field(default=None)  # default to None
+    end_date: datetime | None = Field(
+        default=None, sa_column=Column(TIMESTAMP(timezone=True), nullable=True)
+    )
     address: "Address" = Relationship(back_populates="rented_listings")

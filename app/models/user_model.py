@@ -4,6 +4,8 @@ from sqlmodel import Field, Relationship
 
 from app.schemas.user_schema import UserBase
 
+from app.models.firebase_cloud_token_model import FirebaseCloudToken
+
 from .favorite_listing_model import FavoriteListing
 from .rent_listing_model import RentListing
 from .sale_listing_model import SaleListing
@@ -23,6 +25,10 @@ class User(UserBase, table=True):
     id: int = Field(default=None, primary_key=True)
 
     # Relationships
+    addresses: List["Address"] = Relationship(
+        back_populates="users",
+    )
+
     reviews_written: List["UserReview"] = Relationship(
         back_populates="reviewer",
         sa_relationship_kwargs={"foreign_keys": "[UserReview.reviewer_id]"},
@@ -33,15 +39,15 @@ class User(UserBase, table=True):
         sa_relationship_kwargs={"foreign_keys": "UserReview.reviewee_id"},
     )
 
+    firebase_cloud_tokens: List["FirebaseCloudToken"] = Relationship(
+        back_populates="user"
+    )
+
     search_alerts: List["UserSearchAlert"] = Relationship(
         back_populates="user",
         # This configures SQLModel to automatically delete the related
         # records (UserSearchAlert) when the initial one is deleted (a User).
         cascade_delete=True,
-    )
-
-    addresses: List["Address"] = Relationship(
-        back_populates="users",
     )
 
     favorite_listings: list["Listing"] = Relationship(
