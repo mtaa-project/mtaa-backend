@@ -106,21 +106,6 @@ class UserService:
     #     average_rating = round(rating_total / len(seller.reviews_received), 2)
     #     return average_rating
 
-    def get_seller_rating_subquery(self):
-        """
-        Returns a subquery that computes the average rating for each seller.
-        Sellers are identified by the reviewee_id in the UserReview model.
-        """
-        rating_subquery = (
-            select(
-                UserReview.reviewee_id.label("seller_id"),
-                func.avg(UserReview.rating).label("avg_rating"),
-            )
-            .group_by(UserReview.reviewee_id)
-            .subquery()
-        )
-        return rating_subquery
-
     async def get_seller_rating(self, seller_id: int) -> float | None:
         """
         Calculates the seller's rating using the seller rating subquery.
@@ -166,6 +151,22 @@ class UserService:
         )
         print(result.scalars().all())
         return result.scalars().all()
+
+    @classmethod
+    def get_seller_rating_subquery(cls):
+        """
+        Returns a subquery that computes the average rating for each seller.
+        Sellers are identified by the reviewee_id in the UserReview model.
+        """
+        rating_subquery = (
+            select(
+                UserReview.reviewee_id.label("seller_id"),
+                func.avg(UserReview.rating).label("avg_rating"),
+            )
+            .group_by(UserReview.reviewee_id)
+            .subquery()
+        )
+        return rating_subquery
 
     @classmethod
     async def get_dependency(
