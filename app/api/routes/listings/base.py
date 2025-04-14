@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,14 +14,14 @@ from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.listing_image import ListingImage
 from app.models.listing_model import Listing
+from app.models.rent_listing_model import RentListing
+from app.models.sale_listing_model import SaleListing
 from app.schemas.listing_schema import (
-    ListingCardCreate,
     ListingCardDetails,
     ListingCardProfile,
     ListingCreate,
     ListingQueryParameters,
     ListingUpdate,
-    ProfileStatistics,
     SellerInfoCard,
 )
 from app.services.listing.listing_service import ListingService
@@ -654,6 +655,110 @@ async def delete_listing(
 
     # set listing status to removed
     listing.listing_status = ListingStatus.REMOVED
+    session.add(listing)
+    await session.commit()
+    await session.refresh(listing)
+    return listing
+
+
+# buy listing
+@router.post(
+    "/{listing_id}/buy",
+    status_code=status.HTTP_200_OK,
+    summary="Buy a listing",
+    description="Marks the listing as SOLD. It will no longer be visible to users.",
+)
+async def buy_listing(
+    *,
+    listing_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+):
+    current_user = await user_service.get_current_user()
+
+    # check that listing exists
+    listing = await session.get(Listing, listing_id)
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} not found.",
+        )
+
+    # check that user is logged in and is the seller of the listing
+    if current_user.id != listing.seller_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to buy this listing.",
+        )
+
+    # set listing status to sold
+    listing.listing_status = ListingStatus.SOLD
+
+    # add transaction to DB session
+    transaction = SaleListing(
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        buyer_id=current_user.id,
+        listing_id=listing.id,
+        address_id=listing.address_id,
+        sold_date=listing.updated_at,  # use updated_at as sold date as that is the date when the listing was sold
+    )
+    session.add(transaction)
+    session.add(listing)
+    await session.commit()
+    await session.refresh(listing)
+    return listing
+
+
+# rent listing
+@router.post(
+    "/{listing_id}/rent",
+    status_code=status.HTTP_200_OK,
+    summary="Rent a listing",
+    description="Marks the listing as RENTED. It will no longer be visible to users.",
+)
+async def rent_listing(
+    *,
+    listing_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+):
+    current_user = await user_service.get_current_user()
+
+    # check that listing exists
+    listing = await session.get(Listing, listing_id)
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} not found.",
+        )
+
+    # check that user is logged in and is the seller of the listing
+    if current_user.id != listing.seller_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to rent this listing.",
+        )
+
+    # set listing status to rented
+    listing.listing_status = ListingStatus.RENTED
+
+    # add transaction to DB session
+    transaction = RentListing(
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        buyer_id=current_user.id,
+        listing_id=listing.id,
+        address_id=listing.address_id,  # assuming this is part of your Listing model
+        start_date=datetime.now(UTC),
+        end_date=datetime.now(UTC)
+        + timedelta(minutes=10),  # set this to 10 minutes from now
+        address=listing.address,
+    )
+
+    session.add(transaction)
     session.add(listing)
     await session.commit()
     await session.refresh(listing)
