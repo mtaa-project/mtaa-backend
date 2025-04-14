@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic_extra_types.coordinate import Latitude, Longitude
 from sqlalchemy import func, null
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -29,8 +30,8 @@ async def get_favorite_listings(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     listing_service: ListingService = Depends(ListingService.get_dependency),
-    user_latitude: float | None = None,
-    user_longitude: float | None = None,
+    user_latitude: Latitude | None = None,
+    user_longitude: Longitude | None = None,
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
@@ -119,8 +120,8 @@ async def add_favorite(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     listing_service: ListingService = Depends(ListingService.get_dependency),
-    user_latitude: float | None = None,
-    user_longitude: float | None = None,
+    user_latitude: Latitude | None = None,
+    user_longitude: Longitude | None = None,
 ):
     # check that listing exists
     result = await session.execute(

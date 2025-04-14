@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated, List, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic_extra_types.coordinate import Latitude, Longitude
 from sqlalchemy import null
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -44,8 +45,8 @@ async def create_listing(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     listing_service: ListingService = Depends(ListingService.get_dependency),
-    user_latitude: float | None = None,
-    user_longitude: float | None = None,
+    user_latitude: Latitude | None = None,
+    user_longitude: Longitude | None = None,
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
@@ -419,8 +420,8 @@ async def get_listing(
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     listing_service: ListingService = Depends(ListingService.get_dependency),
-    user_latitude: float | None = None,
-    user_longitude: float | None = None,
+    user_latitude: Latitude | None = None,
+    user_longitude: Longitude | None = None,
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]

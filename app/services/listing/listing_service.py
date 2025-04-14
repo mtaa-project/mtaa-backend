@@ -4,6 +4,7 @@ from typing import List, Literal, Optional
 
 from fastapi import Depends, HTTPException, Request, status
 from firebase_admin import storage
+from pydantic_extra_types.coordinate import Latitude, Longitude
 from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -147,10 +148,10 @@ class ListingService:
 
     def get_user_listing_distance(
         self,
-        user_latitude: float,
-        user_longitude: float,
-        listing_latitude: float,
-        listing_longitude: float,
+        user_latitude: Latitude | None = None,
+        user_longitude: Longitude | None = None,
+        listing_latitude: Latitude | None = None,
+        listing_longitude: Longitude | None = None,
     ) -> float:
         """
         Calculates the great-circle distance between two points on the Earth using the haversine formula.

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import ConfigDict
 from pydantic_extra_types.coordinate import Latitude, Longitude
 from pydantic_extra_types.country import CountryAlpha2
@@ -15,8 +13,8 @@ class AddressBase(SQLModel):
     city: str | None = Field(default=None, max_length=255)
     street: str | None = Field(default=None, max_length=255)
     postal_code: str = Field(max_length=10)
-    latitude: Optional[Latitude] = None
-    longitude: Optional[Longitude] = None
+    latitude: Latitude | None = None
+    longitude: Longitude | None = None
 
 
 class AddressUpdate(SQLModel):

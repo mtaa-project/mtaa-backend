@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from pydantic import ConfigDict
+from pydantic_extra_types.coordinate import Latitude, Longitude
 from pydantic_extra_types.country import CountryAlpha2
 from sqlmodel import Field, SQLModel
 
@@ -122,8 +123,8 @@ class AlertQuery(SQLModel):
 class ListingQueryParameters(AlertQuery):
     limit: int = 10
     offset: int = 0
-    user_latitude: float | None = None
-    user_longitude: float | None = None
+    user_latitude: Latitude | None = None
+    user_longitude: Longitude | None = None
     max_distance: float | None = None  # same as radius, in km
 
 
