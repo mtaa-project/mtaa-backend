@@ -145,7 +145,7 @@ class UserService:
         # print(sold_listings.scalars().all())
         return sold_listings.scalars().all()
 
-    async def get_rented_listings(self, seller_id: int) -> SaleListing:
+    async def get_rented_listings(self, seller_id: int) -> RentListing:
         result = await self.session.execute(
             select(Listing).join(RentListing).where(Listing.seller_id == seller_id)
         )
