@@ -104,6 +104,7 @@ class ListingQueryParameters(SQLModel):
     min_price: int | None = None
     max_price: int | None = None
     min_rating: float | None = None
+    time_from: datetime | None = None  # filter by timestamp
 
     # sort by options
     sort_by: str = "created_at"  # updated_at, price, rating, location
