@@ -12,6 +12,7 @@ from app.api.dependencies import get_async_session
 from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
+from app.models.enums.offer_type import OfferType
 from app.models.listing_image import ListingImage
 from app.models.listing_model import Listing
 from app.models.rent_listing_model import RentListing
@@ -667,32 +668,56 @@ async def delete_listing(
     status_code=status.HTTP_200_OK,
     summary="Buy a listing",
     description="Marks the listing as SOLD. It will no longer be visible to users.",
+    response_model=ListingCardDetails,
 )
 async def buy_listing(
     *,
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
-    current_user = await user_service.get_current_user()
+    current_user = await user_service.get_current_user(
+        dependencies=["favorite_listings"]
+    )
 
     # check that listing exists
-    listing = await session.get(Listing, listing_id)
+    listing = await session.execute(
+        select(Listing)
+        .where(Listing.id == listing_id)
+        .where(Listing.listing_status == ListingStatus.ACTIVE)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+            selectinload(Listing.images),
+        )
+    )
+
+    listing = listing.scalars().one_or_none()
+
     if not listing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Listing with ID {listing_id} not found.",
         )
 
-    # check that user is logged in and is the seller of the listing
-    if current_user.id != listing.seller_id:
+    if listing.offer_type == OfferType.RENT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Listing is not for sale.",
+        )
+
+    # check that user is logged in and is not the seller of the listing
+    if current_user.id == listing.seller_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to buy this listing.",
+            detail="You can not buy you own listing.",
         )
 
     # set listing status to sold
     listing.listing_status = ListingStatus.SOLD
+    temp = listing.updated_at
 
     # add transaction to DB session
     transaction = SaleListing(
@@ -704,11 +729,34 @@ async def buy_listing(
         address_id=listing.address_id,
         sold_date=listing.updated_at,  # use updated_at as sold date as that is the date when the listing was sold
     )
+
+    response = ListingCardDetails(
+        id=listing.id,
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        listing_status=listing.listing_status,
+        offer_type=listing.offer_type,
+        liked=listing in current_user.favorite_listings,
+        seller=SellerInfoCard(
+            id=listing.seller.id,
+            firstname=listing.seller.firstname,
+            lastname=listing.seller.lastname,
+            rating=await user_service.get_seller_rating(listing.seller_id),
+        ),
+        address=listing.address,
+        categories=listing.categories,
+        created_at=listing.created_at,
+        updated_at=temp,
+        image_paths=listing_service.get_presigned_urls(listing.images),
+    )
+
     session.add(transaction)
     session.add(listing)
     await session.commit()
     await session.refresh(listing)
-    return listing
+
+    return response
 
 
 # rent listing
@@ -717,32 +765,55 @@ async def buy_listing(
     status_code=status.HTTP_200_OK,
     summary="Rent a listing",
     description="Marks the listing as RENTED. It will no longer be visible to users.",
+    response_model=ListingCardDetails,
 )
 async def rent_listing(
     *,
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
-    current_user = await user_service.get_current_user()
+    current_user = await user_service.get_current_user(
+        dependencies=["favorite_listings"]
+    )
 
     # check that listing exists
-    listing = await session.get(Listing, listing_id)
+    listing = await session.execute(
+        select(Listing)
+        .where(Listing.id == listing_id)
+        .where(Listing.listing_status == ListingStatus.ACTIVE)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+            selectinload(Listing.images),
+        )
+    )
+
+    listing = listing.scalars().one_or_none()
     if not listing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Listing with ID {listing_id} not found.",
         )
 
+    if listing.offer_type == OfferType.BUY:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Listing is not for rent.",
+        )
+
     # check that user is logged in and is the seller of the listing
-    if current_user.id != listing.seller_id:
+    if current_user.id == listing.seller_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not authorized to rent this listing.",
+            detail="You can not rent this listing.",
         )
 
     # set listing status to rented
     listing.listing_status = ListingStatus.RENTED
+    temp = listing.updated_at
 
     # add transaction to DB session
     transaction = RentListing(
@@ -758,86 +829,188 @@ async def rent_listing(
         address=listing.address,
     )
 
+    response = ListingCardDetails(
+        id=listing.id,
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        listing_status=listing.listing_status,
+        offer_type=listing.offer_type,
+        liked=listing in current_user.favorite_listings,
+        seller=SellerInfoCard(
+            id=listing.seller.id,
+            firstname=listing.seller.firstname,
+            lastname=listing.seller.lastname,
+            rating=await user_service.get_seller_rating(listing.seller_id),
+        ),
+        address=listing.address,
+        categories=listing.categories,
+        created_at=listing.created_at,
+        updated_at=temp,
+        image_paths=listing_service.get_presigned_urls(listing.images),
+    )
+
     session.add(transaction)
     session.add(listing)
     await session.commit()
     await session.refresh(listing)
-    return listing
+
+    return response
 
 
-# TODO: TEST this
-# TODO: change this so that it correctly handles listing status because it needs to be sent to sellListing table,
-# TODO: split this to more endpoints -> change to sold, change to hidden, change to rented
-# change listing status to hidden, active, sold
-# @router.put(
-#     "/change-status/{listing_id}",
-#     response_model=ListingCardDetails,
-#     summary="Change the status of a listing",
-#     description="Change the status of a listing to active, hidden, or sold.",
-# )
-# async def change_listing_status(
-#     *,
-#     listing_id: int,
-#     session: AsyncSession = Depends(get_async_session),
-#     user_service: UserService = Depends(UserService.get_dependency),
-#     listing_status: ListingStatus,
-# ):
-#     current_user = await user_service.get_current_user()
+# hide listing
+@router.put(
+    "{listing_id}/hide",
+    status_code=status.HTTP_200_OK,
+    summary="Hide a listing",
+    description="Marks the listing as HIDDEN. It will no longer be visible to users.",
+    response_model=ListingCardDetails,
+)
+async def hide_listing(
+    *,
+    listing_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
+):
+    current_user = await user_service.get_current_user(
+        dependencies=["favorite_listings"]
+    )
 
-#     # check that listing exists
-#     result = await session.execute(
-#         select(Listing)
-#         .where(Listing.id == listing_id)
-#         .options(
-#             selectinload(Listing.address),
-#             selectinload(Listing.categories),
-#             selectinload(Listing.seller),
-#         )
-#     )
-#     listing = result.scalars().one_or_none()
+    # check that listing exists
+    listing = await session.execute(
+        select(Listing)
+        .where(Listing.id == listing_id)
+        .where(Listing.listing_status == ListingStatus.ACTIVE)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+            selectinload(Listing.images),
+        )
+    )
 
-#     if not listing:
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail=f"Listing with ID {listing_id} not found.",
-#         )
+    listing = listing.scalars().one_or_none()
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} not found.",
+        )
 
-#     # check that user is logged in and is the seller of the listing
-#     if current_user.id != listing.seller_id:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="You are not authorized to change the status of this listing.",
-#         )
+    # check that user is logged in and is the seller of the listing
+    if current_user.id != listing.seller_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to hide this listing.",
+        )
 
-#     # set listing status to listing_status
-#     if listing_status == ListingStatus.REMOVED:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Listing status cannot be REMOVED when changing the status of a listing.",
-#         )
-#     listing.listing_status = listing_status
-#     session.add(listing)
-#     await session.commit()
-#     await session.refresh(listing)
+    # set listing status to hidden
+    listing.listing_status = ListingStatus.HIDDEN
+    temp = listing.updated_at
 
-#     response = ListingCardDetails(
-#         id=listing.id,
-#         title=listing.title,
-#         description=listing.description,
-#         price=listing.price,
-#         listing_status=listing.listing_status,
-#         offer_type=listing.offer_type,
-#         liked=listing in current_user.favorite_listings,
-#         seller=SellerInfoCard(
-#             id=listing.seller_id,
-#             firstname=listing.seller.firstname,
-#             lastname=listing.seller.lastname,
-#             rating=await user_service.get_seller_rating(listing.seller_id),
-#         ),
-#         address=listing.address,
-#         categories=listing.categories,
-#         created_at=listing.created_at,
-#         updated_at=listing.updated_at,
-#     )
+    response = ListingCardDetails(
+        id=listing.id,
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        listing_status=listing.listing_status,
+        offer_type=listing.offer_type,
+        liked=listing in current_user.favorite_listings,
+        seller=SellerInfoCard(
+            id=listing.seller.id,
+            firstname=listing.seller.firstname,
+            lastname=listing.seller.lastname,
+            rating=await user_service.get_seller_rating(listing.seller_id),
+        ),
+        address=listing.address,
+        categories=listing.categories,
+        created_at=listing.created_at,
+        updated_at=temp,
+        image_paths=listing_service.get_presigned_urls(listing.images),
+    )
 
-#     return response
+    # add transaction to DB session
+    session.add(listing)
+    await session.commit()
+    await session.refresh(listing)
+
+    return response
+
+
+# show listing
+@router.put(
+    "{listing_id}/show",
+    status_code=status.HTTP_200_OK,
+    summary="Shows a hidden listing",
+    description="Marks the listing as ACTIVE. It will again be visible to users.",
+    response_model=ListingCardDetails,
+)
+async def show_listing(
+    *,
+    listing_id: int,
+    session: AsyncSession = Depends(get_async_session),
+    user_service: UserService = Depends(UserService.get_dependency),
+    listing_service: ListingService = Depends(ListingService.get_dependency),
+):
+    current_user = await user_service.get_current_user(
+        dependencies=["favorite_listings"]
+    )
+
+    # check that listing exists
+    listing = await session.execute(
+        select(Listing)
+        .where(Listing.id == listing_id)
+        .where(Listing.listing_status == ListingStatus.HIDDEN)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+            selectinload(Listing.images),
+        )
+    )
+
+    listing = listing.scalars().one_or_none()
+    if not listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Listing with ID {listing_id} not found.",
+        )
+
+    # check that user is logged in and is the seller of the listing
+    if current_user.id != listing.seller_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not authorized to hide this listing.",
+        )
+
+    # set listing status to hidden
+    listing.listing_status = ListingStatus.ACTIVE
+    temp = listing.updated_at
+
+    response = ListingCardDetails(
+        id=listing.id,
+        title=listing.title,
+        description=listing.description,
+        price=listing.price,
+        listing_status=listing.listing_status,
+        offer_type=listing.offer_type,
+        liked=listing in current_user.favorite_listings,
+        seller=SellerInfoCard(
+            id=listing.seller.id,
+            firstname=listing.seller.firstname,
+            lastname=listing.seller.lastname,
+            rating=await user_service.get_seller_rating(listing.seller_id),
+        ),
+        address=listing.address,
+        categories=listing.categories,
+        created_at=listing.created_at,
+        updated_at=temp,
+        image_paths=listing_service.get_presigned_urls(listing.images),
+    )
+
+    # add transaction to DB session
+    session.add(listing)
+    await session.commit()
+    await session.refresh(listing)
+
+    return response
