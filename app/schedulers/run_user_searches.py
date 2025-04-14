@@ -52,7 +52,13 @@ async def notify_user_search_alerts():
                     selectinload(Listing.categories),
                     selectinload(Listing.seller),
                 )
-                .where(Listing.listing_status == ListingStatus.ACTIVE)
+                .where(
+                    Listing.listing_status == ListingStatus.ACTIVE,
+                    func.date_trunc("second", Listing.created_at)
+                    >= func.date_trunc(
+                        "second", s_alert.last_notified_at
+                    ),  # Listing created after last notified time
+                )
             )
 
             # Iterate over each key in product_filters and build a condition based on the key name
