@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy.orm import relationship as sa_relationship
 from sqlmodel import Field, Relationship
 
 from app.schemas.address_schema import AddressBase
