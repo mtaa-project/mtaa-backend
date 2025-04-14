@@ -9,7 +9,6 @@ from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.user_search_alert_model import UserSearchAlert
 from app.schemas.listing_schema import AlertQuery
-from app.services.listing.listing_service import ListingService
 from app.services.user.user_service import UserService
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
@@ -27,7 +26,6 @@ async def create_alert(
     new_alert_data: AlertQuery,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
-    listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     current_user = await user_service.get_current_user()
 
@@ -80,7 +78,7 @@ async def create_alert(
     summary="Get current user's alerts",
     description="Fetch all alerts created by the current user.",
 )
-async def get_my_listings(
+async def get_my_alerts(
     *,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
