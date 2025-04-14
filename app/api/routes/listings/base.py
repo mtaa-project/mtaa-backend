@@ -178,6 +178,7 @@ async def get_my_listings(
 ):
     current_user = await user_service.get_current_user()
 
+    # TODO: make up mind on what to do with listing status. Might filter out sold listings as well
     # return only posted listings that are not removed
     result = await session.execute(
         select(Listing)
@@ -195,11 +196,16 @@ async def get_my_listings(
     listing_result: list[ListingCardProfile] = []
     for listing in listings:
         presigned_urls = listing_service.get_presigned_urls(listing.images)
-        listing_data = listing.model_dump(exclude_none=True)
+        listing_data = listing.model_dump(
+            exclude_none=True,
+            exclude={
+                "address_id",
+                "seller_id",
+            },  # exclude these fields because they are forbidden in pydantic model
+        )
         # set title image
         main_image = presigned_urls[0] if len(presigned_urls) > 0 else ""
         listing_data.setdefault("image_path", main_image)
-
         listing_data.setdefault("address", listing.address)
 
         listing_card = ListingCardProfile.model_validate(listing_data)
