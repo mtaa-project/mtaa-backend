@@ -31,8 +31,6 @@ from app.services.user.user_service import UserService
 router = APIRouter()
 
 
-# TESTED for listing creation
-# create listing
 @router.post(
     "/",
     response_model=ListingCardDetails,
@@ -54,13 +52,10 @@ async def create_listing(
     )
 
     # check that listing status is not removed or sold
-    if new_listing_data.listing_status in [
-        ListingStatus.REMOVED,
-        ListingStatus.SOLD,
-    ]:
+    if new_listing_data.listing_status != ListingStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Listing status cannot be REMOVED or SOLD when creating a listing.",
+            detail="Listing status must be ACTIVE when creating a listing.",
         )
 
     # address management
@@ -500,7 +495,7 @@ async def get_listing(
     return response
 
 
-# TESTED title, description, price, listing_status, offer_type, address_id, category_ids
+# TESTED title, description, price, listing_status, offer_type, category_ids
 # update listing
 @router.put(
     "/{listing_id}",
@@ -551,7 +546,7 @@ async def update_listing(
             detail="You are not authorized to update this listing.",
         )
 
-    # change address if address_id is provided
+    # change address if address is provided
     if updated_listing_data.address:
         # create new address
         address_data = updated_listing_data.address.model_dump(exclude_none=True)

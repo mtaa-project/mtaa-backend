@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
+from pydantic import ConfigDict
 from pydantic_extra_types.country import CountryAlpha2
 from sqlmodel import Field, SQLModel
 
@@ -16,6 +17,7 @@ from app.schemas.transaction_schema import ListingTransactionBase
 # Seller info schema
 # this is used to display seller info in listing cards
 class SellerInfoCard(SQLModel):
+    model_config = ConfigDict(extra="forbid")
     id: int
     firstname: str
     lastname: str
@@ -29,6 +31,7 @@ class SellerInfoExpanded(SellerInfoCard):
 
 # Basic schema for listing data
 class ListingBase(SQLModel, ListingTransactionBase):
+    model_config = ConfigDict(extra="forbid")
     listing_status: ListingStatus
     offer_type: OfferType
 
@@ -86,6 +89,7 @@ class ListingCreate(ListingBase):
 
 # schema for listing update
 class ListingUpdate(SQLModel):
+    model_config = ConfigDict(extra="forbid")
     title: str | None = None
     description: str | None = None
     price: Decimal | None = None
@@ -102,7 +106,7 @@ class AlertQuery(SQLModel):
     min_price: int | None = Field(default=None, ge=0)
     max_price: int | None = Field(default=None, ge=0)
     min_rating: float | None = Field(default=None, ge=0)
-    time_from: datetime | None = None  # filter by timestamp
+    time_from: datetime | None = Field(ge=0, le=5, default=None)  # filter by timestamp)
 
     # sort by options
     sort_by: str = "created_at"  # updated_at, price, rating, location
@@ -124,5 +128,6 @@ class ListingQueryParameters(AlertQuery):
 
 
 class ProfileStatistics(SQLModel):
+    model_config = ConfigDict(extra="forbid")
     total_lent: int = Field(default=0, ge=0)
     total_sold: int = Field(default=0, ge=0)
