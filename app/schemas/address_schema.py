@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic_extra_types.country import CountryAlpha2
 from sqlmodel import Field
 from sqlmodel.main import SQLModel
@@ -17,8 +15,8 @@ class AddressBase(SQLModel):
 
 
 class AddressUpdate(SQLModel):
-    visibility: bool
-    country: Optional[CountryAlpha2] = None
-    city: Optional[str] = None
-    postal_code: Optional[str] = None
-    street: Optional[str] = None
+    visibility: bool = Field(default=True)
+    country: CountryAlpha2 | None = None
+    city: str | None = None
+    postal_code: str | None = None
+    street: str | None = None
