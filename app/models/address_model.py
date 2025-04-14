@@ -1,6 +1,5 @@
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy.orm import relationship as sa_relationship
 from sqlmodel import Field, Relationship
 
 from app.schemas.address_schema import AddressBase
@@ -23,7 +22,7 @@ class Address(AddressBase, table=True):
 
     # Relationships
     users: "User" = Relationship(back_populates="addresses")
-    sale: List["Listing"] = Relationship(back_populates="address")
+    # sale: List["Listing"] = Relationship(back_populates="address")
     listings: List["Listing"] = Relationship(back_populates="address")
 
     sold_listings: List["SaleListing"] = Relationship(

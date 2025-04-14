@@ -2,21 +2,23 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import File, UploadFile
-from pydantic import conlist
+from pydantic import ConfigDict
+from pydantic_extra_types.coordinate import Latitude, Longitude
+from pydantic_extra_types.country import CountryAlpha2
 from sqlmodel import Field, SQLModel
-from typing_extensions import Annotated
 
 from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
+from app.schemas.address_schema import AddressBase
 from app.schemas.transaction_schema import ListingTransactionBase
 
 
 # Seller info schema
 # this is used to display seller info in listing cards
 class SellerInfoCard(SQLModel):
+    model_config = ConfigDict(extra="forbid")
     id: int
     firstname: str
     lastname: str
@@ -30,6 +32,7 @@ class SellerInfoExpanded(SellerInfoCard):
 
 # Basic schema for listing data
 class ListingBase(SQLModel, ListingTransactionBase):
+    model_config = ConfigDict(extra="forbid")
     listing_status: ListingStatus
     offer_type: OfferType
 
@@ -74,41 +77,58 @@ class ListingCard(ListingBase):
 class ListingCardDetails(ListingCard):
     description: str
     image_paths: list[str]
+    distance_from_user: float | None = None  # distance from user location
 
 
 # schema for listing creation
 class ListingCreate(ListingBase):
     description: str
-    address_id: int  # address visibility is handled in the address model
+    address: AddressBase | None = None  # address info for creating new address
     category_ids: list[int]  # list of category ids
     image_paths: list[str]
 
 
 # schema for listing update
 class ListingUpdate(SQLModel):
+    model_config = ConfigDict(extra="forbid")
     title: str | None = None
     description: str | None = None
     price: Decimal | None = None
-    listing_status: ListingStatus | None = None
     offer_type: OfferType | None = None
-    address_id: int | None = None
+    address: AddressBase | None = None  # address info for creating new address
     category_ids: list[int] | None = None
     # image_paths: list[str] | None
 
 
-class listingQueryParameters(SQLModel):
-    limit: int = 10
-    offset: int = 0
+class AlertQuery(SQLModel):
     category_ids: List[int] | None = None
     offer_type: OfferType  # filter by offer type: RENT, SELL (BOTH is NOT supported)
     listing_status: ListingStatus = ListingStatus.ACTIVE
-    min_price: int | None = None
-    max_price: int | None = None
-    min_rating: float | None = None
+    min_price: int | None = Field(default=None, ge=0)
+    max_price: int | None = Field(default=None, ge=0)
+    min_rating: float | None = Field(default=None, ge=0)
+    time_from: datetime | None = Field(ge=0, le=5, default=None)  # filter by timestamp)
 
     # sort by options
     sort_by: str = "created_at"  # updated_at, price, rating, location
     sort_order: str = "desc"  # asc, desc
     search: str | None = None
-    search_location: str | None = None
-    search_radius: int | None = None
+
+    # location based search
+    country: CountryAlpha2 | None = Field(default=None, max_length=2)
+    city: str | None = Field(default=None, max_length=255)
+    street: str | None = Field(default=None, max_length=255)
+
+
+class ListingQueryParameters(AlertQuery):
+    limit: int = 10
+    offset: int = 0
+    user_latitude: Latitude | None = None
+    user_longitude: Longitude | None = None
+    max_distance: float | None = None  # same as radius, in km
+
+
+class ProfileStatistics(SQLModel):
+    model_config = ConfigDict(extra="forbid")
+    total_lent: int = Field(default=0, ge=0)
+    total_sold: int = Field(default=0, ge=0)
