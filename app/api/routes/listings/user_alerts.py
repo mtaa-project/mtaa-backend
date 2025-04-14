@@ -36,7 +36,7 @@ async def create_alert(
     ]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Listing status cannot be REMOVED or SOLD when searching for a listing.",
+            detail="Listing status cannot be REMOVED or SOLD when alerting for a listing.",
         )
 
     # check that categories exist
