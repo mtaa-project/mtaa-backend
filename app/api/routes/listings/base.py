@@ -314,6 +314,11 @@ async def get_listings_by_params(
         query = query.where(Listing.address.has(Address.city == params.city))
     if params.street is not None:
         query = query.where(Listing.address.has(Address.street == params.street))
+    if params.time_from is not None:
+        query = query.where(
+            func.date_trunc("second", Listing.created_at)
+            >= func.date_trunc("second", params.time_from)
+        )  # second precision for created_at filtering
 
     # Location filtering and calculating:
     if params.user_latitude is not None or params.user_longitude is not None:
