@@ -14,9 +14,9 @@ class SaleListing(SQLModel, ListingTransactionBase, table=True):
     __tablename__ = "saleListings"
     id: int = Field(default=None, primary_key=True)
 
+    # Foreign keys
     buyer_id: int = Field(foreign_key="users.id")
     listing_id: int = Field(foreign_key="listings.id")
-    # Foreign keys
     address_id: int = Field(foreign_key="addresses.id")
 
     sold_date: datetime = Field(
