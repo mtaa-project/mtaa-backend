@@ -656,6 +656,13 @@ async def delete_listing(
             detail="You are not authorized to delete this listing.",
         )
 
+    # check that listing is not already removed
+    if listing.listing_status == ListingStatus.REMOVED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Listing is already removed.",
+        )
+
     # set listing status to removed
     listing.listing_status = ListingStatus.REMOVED
     session.add(listing)
