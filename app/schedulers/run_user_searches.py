@@ -2,7 +2,7 @@ import urllib.parse
 from datetime import UTC, datetime, timedelta
 from typing import List
 
-from firebase_admin import messaging
+from firebase_admin import exceptions, messaging
 from sqlalchemy import asc, desc, func, or_, select
 from sqlalchemy.orm import selectinload
 
@@ -119,6 +119,7 @@ async def notify_user_search_alerts():
             print(f"Found {len(listings)} listings matching the search alert.")
             print(f"Search Alert ID: {s_alert.id}")
             print(f"Search Alert Filters: {s_alert.product_filters}")
+            print(listings)
             print("----------------------------------")
 
             if listings:
@@ -130,34 +131,44 @@ async def notify_user_search_alerts():
                 # Add time filters to the query string
                 query_string += f"&time_from={s_alert.last_notified_at.isoformat()}"
                 deep_link_url = f"{base_url}/listings?{query_string}"
+                # deep_link_url = base_url + "/home"
                 print(f"URL: {deep_link_url}")
 
-                # Send notification to the user
-                for token in s_alert.user.firebase_cloud_tokens:
-                    try:
-                        message = messaging.Message(
-                            notification=messaging.Notification(
-                                title="New Listings Alert",
-                                body=f"{len(listings)} new listings match your search criteria. Tap to view details.",
-                            ),
-                            token=token.token,
-                            data={
-                                "listings_deeplink": deep_link_url,
-                            },
-                            android=messaging.AndroidConfig(
-                                priority="high",
-                                notification=messaging.AndroidNotification(
-                                    channel_id="high-priority-alerts",
-                                    sound="default",
-                                ),
-                            ),
-                        )
-                        response = await messaging.send(message)
-                        print(f"Successfully sent message: {response}")
-                    except Exception as e:
-                        print(f"Error sending message: {e}")
+                token_strings = [
+                    t.token
+                    for t in s_alert.user.firebase_cloud_tokens
+                    if isinstance(t.token, str) and t.token
+                ]
+                print("lala")
 
+                message = messaging.MulticastMessage(
+                    notification=messaging.Notification(
+                        title="New Listings Alert",
+                        body=f"{len(listings)} new listings match your search criteria. Tap to view details.",
+                    ),
+                    data={
+                        "listings_deeplink": deep_link_url,
+                    },
+                    android=messaging.AndroidConfig(
+                        priority="high",
+                        notification=messaging.AndroidNotification(
+                            channel_id="high-priority-alerts",
+                            sound="default",
+                        ),
+                    ),
+                    tokens=token_strings,
+                )
+                try:
+                    # https://firebase.google.com/docs/reference/admin/python/firebase_admin.messaging
+                    response = await messaging.send_each_for_multicast(message)
+                    print(
+                        f"Successfully sent multicast: {response.success_count} messages"
+                    )
+                    s_alert.last_notified_at = now
+                except exceptions.FirebaseError as firebase_error:
+                    print(f"Error sending to FCM: {firebase_error}")
                 # Update the last notified time
-                s_alert.last_notified_at = now
+                except ValueError as value_error:
+                    print("Invalid message parameters: ", value_error)
 
         await session.commit()
