@@ -124,13 +124,14 @@ async def notify_user_search_alerts():
 
             if listings:
                 # Generate a URL for the listings
-                base_url = "http://127.0.0.1:8000"
+                base_url = "mtaa-frotnend://home"
                 query_string = urllib.parse.urlencode(
                     s_alert.product_filters, doseq=True
                 )
                 # Add time filters to the query string
                 query_string += f"&time_from={s_alert.last_notified_at.isoformat()}"
-                deep_link_url = f"{base_url}/listings?{query_string}"
+                # deep_link_url = f"{base_url}/listings?{query_string}"
+                deep_link_url = base_url
                 # deep_link_url = base_url + "/home"
                 print(f"URL: {deep_link_url}")
 
@@ -139,7 +140,6 @@ async def notify_user_search_alerts():
                     for t in s_alert.user.firebase_cloud_tokens
                     if isinstance(t.token, str) and t.token
                 ]
-                print("lala")
 
                 message = messaging.MulticastMessage(
                     notification=messaging.Notification(
@@ -147,7 +147,7 @@ async def notify_user_search_alerts():
                         body=f"{len(listings)} new listings match your search criteria. Tap to view details.",
                     ),
                     data={
-                        "listings_deeplink": deep_link_url,
+                        "deep_link": deep_link_url,
                     },
                     android=messaging.AndroidConfig(
                         priority="high",
@@ -160,7 +160,7 @@ async def notify_user_search_alerts():
                 )
                 try:
                     # https://firebase.google.com/docs/reference/admin/python/firebase_admin.messaging
-                    response = await messaging.send_each_for_multicast(message)
+                    response = messaging.send_each_for_multicast(message)
                     print(
                         f"Successfully sent multicast: {response.success_count} messages"
                     )
