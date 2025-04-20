@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import ConfigDict
+from pydantic import BaseModel, ConfigDict
 from pydantic_extra_types.coordinate import Latitude, Longitude
 from pydantic_extra_types.country import CountryAlpha2
 from sqlmodel import Field, SQLModel
@@ -100,12 +100,20 @@ class ListingUpdate(SQLModel):
     # image_paths: list[str] | None
 
 
-class AlertQuery(SQLModel):
-    category_ids: List[int] | None = None
-    offer_type: OfferType  # filter by offer type: RENT, SELL (BOTH is NOT supported)
-    listing_status: ListingStatus = ListingStatus.ACTIVE
+class PriceRange(BaseModel):
     min_price: int | None = Field(default=None, ge=0)
     max_price: int | None = Field(default=None, ge=0)
+
+
+class AlertQuery(BaseModel):
+    offer_type: OfferType  # filter by offer type: RENT, SELL (BOTH is NOT supported)
+    category_ids: List[int] | None = None
+    # listing_status: ListingStatus = ListingStatus.ACTIVE
+    # min_price: int | None = Field(default=None, ge=0)
+    # max_price: int | None = Field(default=None, ge=0)
+    price_range_rent: PriceRange | None
+    price_range_sale: PriceRange | None
+
     min_rating: float | None = Field(default=None, ge=0)
     time_from: datetime | None = Field(ge=0, le=5, default=None)  # filter by timestamp)
 
@@ -118,6 +126,10 @@ class AlertQuery(SQLModel):
     country: CountryAlpha2 | None = Field(default=None, max_length=2)
     city: str | None = Field(default=None, max_length=255)
     street: str | None = Field(default=None, max_length=255)
+
+
+class AlertQueryCreate(AlertQuery):
+    device_push_token: str
 
 
 class ListingQueryParameters(AlertQuery):

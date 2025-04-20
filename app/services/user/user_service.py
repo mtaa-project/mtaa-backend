@@ -24,6 +24,7 @@ AllowedUserDependencies = Literal[
     "posted_listings",
     "purchased_listings",
     "rented_listings",
+    "firebase_cloud_tokens",
 ]
 DependenciesList = Optional[List[AllowedUserDependencies]]
 

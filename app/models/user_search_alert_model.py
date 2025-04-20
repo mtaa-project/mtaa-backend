@@ -1,20 +1,19 @@
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING
 
 from sqlalchemy import TIMESTAMP, Column
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship
+
+from app.schemas.user_search_alerts import UserSearchAlertBase
 
 if TYPE_CHECKING:
     from .user_model import User
 
 
-class UserSearchAlert(SQLModel, table=True):
+class UserSearchAlert(UserSearchAlertBase, table=True):
     __tablename__ = "userSearchAlerts"
 
     id: int = Field(default=None, primary_key=True)
-    is_active: bool = Field(default=True)
-    product_filters: Dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(TIMESTAMP(timezone=True), nullable=False),
