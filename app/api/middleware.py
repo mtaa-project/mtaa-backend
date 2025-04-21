@@ -43,6 +43,7 @@ async def authenticate_request(request: Request, call_next):
         request.state.user = user
         return await call_next(request)
     except Exception as e:
+        print(e)
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"error": f"{e}"},

@@ -47,7 +47,7 @@ async def get_my_alerts(
     return [
         UserSearchAlertGet(
             id=current_search_term.id,
-            search=current_search_term.product_filters["search"],
+            search=current_search_term.product_filters.get("search", ""),
             is_active=current_search_term.is_active,
         )
         for current_search_term in alerts
@@ -97,9 +97,9 @@ async def get_my_alert(
     return UserSearchAlertDetail(
         id=alert_response.id,
         is_active=alert_response.is_active,
-        search=alert_response.product_filters["search"],
+        search=alert_response.product_filters.get("search", ""),
         categoryIds=selectedCategoryIds,
-        offer_type=alert_response.product_filters["offer_type"],
+        offer_type=alert_response.product_filters.get("offer_type"),
         price_range_rent=alert_response.product_filters.get("price_range_rent"),
         price_range_sale=alert_response.product_filters.get("price_range_sale"),
     )
@@ -151,9 +151,8 @@ async def update_alert(
 
     # Merge only the fields client actually sent
     incoming = updated.model_dump(exclude_unset=True)
-    new_filters = {**alert.product_filters, **incoming}
-    alert.product_filters = new_filters
-
+    alert.product_filters = incoming
+    print("putt: ", incoming)
     session.add(alert)
     await session.commit()
     await session.refresh(alert)
@@ -166,8 +165,8 @@ async def update_alert(
         search=alert.product_filters["search"],
         categoryIds=selected_ids,
         offer_type=alert.product_filters.get("offer_type"),
-        # if your Detail schema includes nested categories,
-        # you can load them here exactly like your GET handler.
+        price_range_rent=alert.product_filters.get("price_range_rent"),
+        price_range_sale=alert.product_filters.get("price_range_sale"),
     )
 
 
@@ -206,7 +205,9 @@ async def create_alert(
         )
 
     # create the alert and add it to the session (type JSONB)
-    product_filters = new_alert_data.model_dump(exclude_unset=True)
+    product_filters = new_alert_data.model_dump(
+        exclude_unset=True, exclude="device_push_token"
+    )
 
     alert = UserSearchAlert(
         user_id=current_user.id,

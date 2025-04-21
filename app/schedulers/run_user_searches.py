@@ -125,11 +125,11 @@ async def notify_user_search_alerts():
             if listings:
                 # Generate a URL for the listings
                 base_url = "mtaa-frotnend://home"
-                query_string = urllib.parse.urlencode(
-                    s_alert.product_filters, doseq=True
-                )
+                # query_string = urllib.parse.urlencode(
+                #     s_alert.product_filters, doseq=True
+                # )
                 # Add time filters to the query string
-                query_string += f"&time_from={s_alert.last_notified_at.isoformat()}"
+                # query_string += f"&time_from={s_alert.last_notified_at.isoformat()}"
                 # deep_link_url = f"{base_url}/listings?{query_string}"
                 deep_link_url = base_url
                 # deep_link_url = base_url + "/home"

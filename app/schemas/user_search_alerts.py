@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel
 from sqlalchemy import Column
@@ -26,8 +26,8 @@ class UserSearchAlertDetail(BaseModel):
     is_active: bool
     categoryIds: list[int]
     offer_type: OfferType
-    price_range_rent: PriceRange | None
-    price_range_sale: PriceRange | None
+    price_range_rent: Optional[PriceRange] = None
+    price_range_sale: Optional[PriceRange] = None
 
 
 class UserSearchAlertGet(BaseModel):

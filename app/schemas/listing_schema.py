@@ -111,8 +111,8 @@ class AlertQuery(BaseModel):
     # listing_status: ListingStatus = ListingStatus.ACTIVE
     # min_price: int | None = Field(default=None, ge=0)
     # max_price: int | None = Field(default=None, ge=0)
-    price_range_rent: PriceRange | None
-    price_range_sale: PriceRange | None
+    price_range_rent: PriceRange | None = None
+    price_range_sale: PriceRange | None = None
 
     min_rating: float | None = Field(default=None, ge=0)
     time_from: datetime | None = Field(ge=0, le=5, default=None)  # filter by timestamp)
