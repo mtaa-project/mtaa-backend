@@ -143,7 +143,13 @@ async def notify_user_search_alerts():
                     for t in s_alert.user.firebase_cloud_tokens
                     if isinstance(t.token, str) and t.token
                 ]
-
+                messaging.AndroidConfig(
+                    priority="high",
+                    notification=messaging.AndroidNotification(
+                        channel_id="default",
+                        sound="default",
+                    ),
+                )
                 message = messaging.MulticastMessage(
                     notification=messaging.Notification(
                         title="New Listings Alert",

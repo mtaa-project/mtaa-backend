@@ -1,4 +1,8 @@
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ENVIRONMENT = os.getenv("RENDER_ENV", "development")
 
 
 class Settings(BaseSettings):
@@ -7,8 +11,11 @@ class Settings(BaseSettings):
     db_password: str
     db_name: str
     db_host: str
-    model_config = SettingsConfigDict(env_file=".env")
     testing: str | None = None
+    model_config = SettingsConfigDict(
+        env_file=".env" if ENVIRONMENT != "production" else None,
+        env_file_encoding="utf-8",
+    )
 
 
 config = Settings()

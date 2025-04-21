@@ -22,8 +22,8 @@ async def lifespan(app: FastAPI):
     # Perform startup tasks
     init_firebase()
     scheduler = AsyncIOScheduler()
-    # scheduler.add_job(notify_user_search_alerts, "interval", seconds=4)
-    scheduler.add_job(notify_user_search_alerts, "interval", minutes=1)
+    # scheduler.add_job(notify_user_search_alerts, "interval", seconds=10)
+    scheduler.add_job(notify_user_search_alerts, "interval", minutes=2)
 
     scheduler.start()
     app.state.scheduler = scheduler  # Store the scheduler in app state for access
