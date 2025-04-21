@@ -35,6 +35,9 @@ async def notify_user_search_alerts():
         search_alerts: List[UserSearchAlert] = result.scalars().all()
 
         for s_alert in search_alerts:
+            if not s_alert.is_active:
+                s_alert.last_notified_at = now
+                continue
             # Build the query to find new listings that match the search alert
             rating_subquery = UserService.get_seller_rating_subquery()
             rating_val = func.coalesce(rating_subquery.c.avg_rating, 0).label(
@@ -148,6 +151,9 @@ async def notify_user_search_alerts():
                     ),
                     data={
                         "deep_link": deep_link_url,
+                        # "offer_type": s_alert.product_filters.get(
+                        #     "offer_type", "Unknown offer type"
+                        # ),
                     },
                     android=messaging.AndroidConfig(
                         priority="high",

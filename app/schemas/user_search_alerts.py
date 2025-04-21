@@ -10,6 +10,10 @@ from app.models.enums.offer_type import OfferType
 from app.schemas.listing_schema import PriceRange
 
 
+class DeviceToken(BaseModel):
+    token: str
+
+
 class UserSearchAlertBase(SQLModel):
     is_active: bool = Field(default=True)
     product_filters: Dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))

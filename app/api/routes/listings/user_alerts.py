@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import desc, select
 
@@ -11,6 +12,7 @@ from app.models.user_search_alert_model import UserSearchAlert
 from app.schemas.listing_schema import AlertQuery, AlertQueryCreate
 from app.schemas.user_search_alerts import (
     Categories,
+    DeviceToken,
     UserSearchAlertDetail,
     UserSearchAlertGet,
 )
@@ -171,6 +173,42 @@ async def update_alert(
 
 
 @router.post(
+    "/my-alerts/register-device-token",
+    summary="Register device token",
+    description="Register provided device token.",
+)
+async def register_device_token(
+    *,
+    session: AsyncSession = Depends(get_async_session),
+    device_token: DeviceToken,
+    user_service: UserService = Depends(UserService.get_dependency),
+):
+    current_user = await user_service.get_current_user(
+        dependencies=["firebase_cloud_tokens"]
+    )
+    new_token = True
+    for token in current_user.firebase_cloud_tokens:
+        if token.token == device_token.token:
+            new_token = False
+            break
+        # Register new FCM device token
+    if new_token:
+        print(f"Token: {device_token.token} is already registered.")
+        current_user.firebase_cloud_tokens.append(
+            FirebaseCloudToken(token=device_token.token)
+        )
+    else:
+        print(f"Registering new device token: {device_token.token}.")
+
+    session.add_all([current_user])
+    await session.commit()
+    return {
+        "token": device_token.token,
+        "registered": new_token,
+    }
+
+
+@router.post(
     "/",
     response_model=UserSearchAlert,
     status_code=status.HTTP_201_CREATED,
@@ -216,15 +254,15 @@ async def create_alert(
     )
 
     new_token = True
+
     for token in current_user.firebase_cloud_tokens:
-        if token == new_alert_data.device_push_token:
+        if token.token == new_alert_data.device_push_token:
             new_token = False
             break
 
     # Register new FCM device token
     if new_token:
         print(f"Token: {new_alert_data.device_push_token} is already registered.")
-
         current_user.firebase_cloud_tokens.append(
             FirebaseCloudToken(token=new_alert_data.device_push_token)
         )
