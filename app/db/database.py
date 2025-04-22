@@ -27,9 +27,12 @@ db_url = URL.create(
 connect_args = {}
 if config.config.render_env == config.Environment.PRODUCTION:
     ssl_ctx = ssl.create_default_context()
+
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+
     connect_args["ssl"] = ssl_ctx
 
-ssl_ctx = ssl.create_default_context()
 
 engine = create_async_engine(
     db_url,
