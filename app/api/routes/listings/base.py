@@ -18,6 +18,7 @@ from app.models.listing_image import ListingImage
 from app.models.listing_model import Listing
 from app.models.rent_listing_model import RentListing
 from app.models.sale_listing_model import SaleListing
+from app.schemas.address_schema import AddressType
 from app.schemas.listing_schema import (
     ListingCardDetails,
     ListingCardProfile,
@@ -34,7 +35,7 @@ router = APIRouter()
 
 @router.post(
     "/",
-    response_model=ListingCardDetails,
+    # response_model=ListingCardDetails,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new listing",
     description="Creates a listing with optional address and category assignments. Requires a valid seller ID.",
@@ -51,17 +52,29 @@ async def create_listing(
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
     )
-
     # check that listing status is not removed or sold
     if new_listing_data.listing_status != ListingStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Listing status must be ACTIVE when creating a listing.",
         )
-
-    # address management
-    if new_listing_data.address is not None:
-        # create new address
+    #  use an existing primary address
+    if new_listing_data.address.address_type == AddressType.PROFILE:
+        user_address = await session.scalars(
+            select(Address).where(
+                Address.is_primary == True, Address.user_id == current_user.id
+            )
+        )
+        user_address = user_address.one_or_none()
+        if not user_address:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No primary address found for the user.",
+            )
+        address = user_address
+    # create new address
+    elif new_listing_data.address.address_type == AddressType.OTHER:
+        print("123")
         address_data = new_listing_data.address.model_dump(exclude_none=True)
         address_data["user_id"] = current_user.id
         address = Address.model_validate(address_data)
@@ -69,23 +82,9 @@ async def create_listing(
         session.add(address)
         await session.commit()
         await session.refresh(address)
-    else:
-        # get primary address of user
-        address = await session.execute(
-            select(Address).where(
-                Address.user_id == current_user.id, Address.is_primary == True
-            )
-        )
-        address = address.scalars().one_or_none()
-
-        if not address:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No primary address found for the user.",
-            )
-
     # check that categories exist and collect them
     category_objs = []
+    print("addr: ", new_listing_data.address.address_type, AddressType.OTHER)
     if new_listing_data.category_ids is not None:
         for category_id in new_listing_data.category_ids:
             category = await session.get(Category, category_id)

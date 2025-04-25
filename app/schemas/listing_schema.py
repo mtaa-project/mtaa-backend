@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import Annotated, List, Optional, Union
 
 from pydantic import BaseModel, ConfigDict
 from pydantic_extra_types.coordinate import Latitude, Longitude
@@ -11,7 +11,7 @@ from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
-from app.schemas.address_schema import AddressBase
+from app.schemas.address_schema import AddressBase, NewAddress, ProfileAddressRef
 from app.schemas.transaction_schema import ListingTransactionBase
 
 
@@ -80,11 +80,16 @@ class ListingCardDetails(ListingCard):
     distance_from_user: float | None = None  # distance from user location
 
 
+AddressUnion = Annotated[
+    Union[ProfileAddressRef, NewAddress],
+    Field(..., discriminator="address_type"),
+]
+
+
 # schema for listing creation
 class ListingCreate(ListingBase):
-    description: str
-    address: AddressBase | None = None  # address info for creating new address
-    category_ids: list[int]  # list of category ids
+    address: AddressUnion
+    category_ids: list[int]
     image_paths: list[str]
 
 

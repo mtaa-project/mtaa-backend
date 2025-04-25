@@ -11,7 +11,7 @@ from app.models.user_review_model import UserReview
 fake = Faker()
 
 NUM_USERS = 10
-MAX_REVIEWS_PER_USER = 3
+MAX_REVIEWS_PER_USER = 30
 LISTINGS_PER_USER = 20
 
 
