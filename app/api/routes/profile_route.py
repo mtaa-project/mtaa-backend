@@ -48,6 +48,7 @@ async def get_profile(
     user_address = user_address.scalars().one_or_none()
 
     return ProfileUser(
+        id=current_user.id,
         firstname=current_user.firstname,
         lastname=current_user.lastname,
         phone_number=current_user.phone_number,
@@ -58,7 +59,7 @@ async def get_profile(
     )
 
 
-@router.put("/", response_model=UserProfileUpdateResponse)
+@router.put("/profile", response_model=UserProfileUpdateResponse)
 async def update_profile(
     *,
     update_data: UserProfileUpdateRequest,
@@ -126,6 +127,7 @@ async def get_profile(
     user_address = user_address.scalars().one_or_none()
 
     return ProfileUser(
+        id=user.id,
         firstname=user.firstname,
         lastname=user.lastname,
         phone_number=user.phone_number,

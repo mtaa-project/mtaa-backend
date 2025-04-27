@@ -36,6 +36,7 @@ class UserProfileUpdateResponse(BaseModel):
 
 
 class ProfileUser(UserGet):
+    id: int
     amount_sold_listing: int
     amount_rent_listing: int
     rating: float | None = Field(ge=1, le=5)

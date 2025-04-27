@@ -25,7 +25,7 @@ def generate_signed_url(image_path: str) -> str:
     bucket = storage.bucket()
     blob = bucket.blob(image_path)
     signed_url = blob.generate_signed_url(
-        version="v4", expiration=timedelta(seconds=20), method="GET"
+        version="v4", expiration=timedelta(minutes=60), method="GET"
     )
     return signed_url
 

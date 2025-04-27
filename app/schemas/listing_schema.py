@@ -37,14 +37,28 @@ class ListingBase(SQLModel, ListingTransactionBase):
     offer_type: OfferType
 
 
+# GET  /listings/my-listings
+# 200 OK
+# [
+#   {
+#     "id": 11,
+#     "title": "Mazda mx5 nb 2003 1.6",
+#     "price": 4567,
+#     "thumbnailUrl": "https://…",      // menšie obrázky
+#     "location": {
+#       "city": "Bratislava",
+#       "country": "Slovensko"
+#     },
+#     "status": "selling"               // tag „Selling“ atď.
+#   },
+#   …
+# ]
+
+
 # Schema for displaying users own listing data in Profile
 class ListingCardProfile(ListingBase):
     id: int
-
     # extra information for listing cards that can be used to display in profile
-    address: Address
-    created_at: datetime
-    updated_at: datetime
     image_path: str
 
 

@@ -47,3 +47,5 @@ class AddressUpdate(SQLModel):
     city: str | None = None
     postal_code: str | None = None
     street: str | None = None
+    latitude: Latitude | None = None
+    longitude: Longitude | None = None

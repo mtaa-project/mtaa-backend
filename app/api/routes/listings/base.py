@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, List, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic_extra_types.coordinate import Latitude, Longitude
 from sqlalchemy import null
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -171,11 +171,48 @@ async def create_listing(
 )
 async def get_my_listings(
     *,
+    page: int = Query(1, ge=1, description="Page number, starts at 1"),
+    limit: int = Query(10, ge=1, le=100, description="Items per page"),
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
     listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
+    """
+    Fetch listings created by the current user, paginated.
+    - `page`: 1-based page index
+    - `limit`: number of items per page
+    """
     current_user = await user_service.get_current_user()
+    stmt = (
+        select(Listing)
+        .where(Listing.seller_id == current_user.id)
+        .where(Listing.listing_status != ListingStatus.REMOVED)
+        .options(
+            selectinload(Listing.address),
+            selectinload(Listing.categories),
+            selectinload(Listing.seller),
+            selectinload(Listing.images),
+        )
+        .offset((page - 1) * limit)
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    listings: list[Listing] = result.scalars().all()
+
+    response: list[ListingCardProfile] = []
+    for listing in listings:
+        presigned = listing_service.get_presigned_urls(listing.images)
+        data = listing.model_dump(
+            exclude_none=True,
+            exclude={"address_id", "seller_id", "updated_at", "created_at"},
+        )
+        # choose the first image or empty
+        data.setdefault("image_path", presigned[0] if presigned else "")
+        card = ListingCardProfile.model_validate(data)
+        # shorten description for the card
+        response.append(card)
+
+    return response
 
     # TODO: make up mind on what to do with listing status. Might filter out sold listings as well
     # return only posted listings that are not removed
@@ -200,14 +237,17 @@ async def get_my_listings(
             exclude={
                 "address_id",
                 "seller_id",
+                "updated_at",
+                "created_at",
             },  # exclude these fields because they are forbidden in pydantic model
         )
         # set title image
         main_image = presigned_urls[0] if len(presigned_urls) > 0 else ""
         listing_data.setdefault("image_path", main_image)
-        listing_data.setdefault("address", listing.address)
+        # listing_data.setdefault("address", listing.address)
 
         listing_card = ListingCardProfile.model_validate(listing_data)
+        listing_card.description = listing_card.description[:15] + "..."
         listing_result.append(listing_card)
 
     return listing_result
