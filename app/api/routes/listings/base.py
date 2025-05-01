@@ -27,7 +27,7 @@ from app.schemas.listing_schema import (
     ListingUpdate,
     SellerInfoCard,
 )
-from app.services.listing.listing_service import ListingService
+from app.services.listing.listing_service import ListingService, delete_image
 from app.services.user.user_service import UserService
 
 router = APIRouter()
@@ -35,7 +35,7 @@ router = APIRouter()
 
 @router.post(
     "/",
-    # response_model=ListingCardDetails,
+    response_model=ListingCardDetails,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new listing",
     description="Creates a listing with optional address and category assignments. Requires a valid seller ID.",
@@ -52,39 +52,30 @@ async def create_listing(
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
     )
+
     # check that listing status is not removed or sold
     if new_listing_data.listing_status != ListingStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Listing status must be ACTIVE when creating a listing.",
         )
-    #  use an existing primary address
-    if new_listing_data.address.address_type == AddressType.PROFILE:
-        user_address = await session.scalars(
+
+    # address management
+    if new_listing_data.address.address_type == AddressType.OTHER:
+        # create new address
+        data = new_listing_data.address.model_dump(exclude_none=True)
+        data["user_id"] = current_user.id
+        address = Address.model_validate(data)
+    else:
+        address = await session.execute(
             select(Address).where(
-                Address.is_primary == True, Address.user_id == current_user.id
+                Address.user_id == current_user.id, Address.is_primary == True
             )
         )
-        user_address = user_address.one_or_none()
-        if not user_address:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No primary address found for the user.",
-            )
-        address = user_address
-    # create new address
-    elif new_listing_data.address.address_type == AddressType.OTHER:
-        print("123")
-        address_data = new_listing_data.address.model_dump(exclude_none=True)
-        address_data["user_id"] = current_user.id
-        address = Address.model_validate(address_data)
+        address = address.scalar_one_or_none()
 
-        session.add(address)
-        await session.commit()
-        await session.refresh(address)
     # check that categories exist and collect them
     category_objs = []
-    print("addr: ", new_listing_data.address.address_type, AddressType.OTHER)
     if new_listing_data.category_ids is not None:
         for category_id in new_listing_data.category_ids:
             category = await session.get(Category, category_id)
@@ -94,13 +85,11 @@ async def create_listing(
                     detail=f"Category with ID {category_id} not found.",
                 )
             category_objs.append(category)
-
     # create listing instance
     listing = Listing(
         title=new_listing_data.title,
         description=new_listing_data.description,
         price=new_listing_data.price,
-        listing_status=new_listing_data.listing_status,
         offer_type=new_listing_data.offer_type,
         address=address,
         seller=current_user,
@@ -149,10 +138,10 @@ async def create_listing(
             rating=seller_rating,
         ),
         address=address,
-        categories=category_objs,
+        # FIXME:
+        category_ids=[],
         # HAVE TO USE THE OBJECTS, OTHERWISE IT WILL TRY TO LAZY LOAD IT FROM listings AND FAIL
         created_at=listing.created_at,
-        updated_at=listing.updated_at,
         image_paths=image_paths,
         distance_from_user=distance,
     )
@@ -531,9 +520,8 @@ async def get_listing(
             rating=seller_rating,
         ),
         address=listing.address,
-        categories=listing.categories,
+        category_ids=[category.id for category in listing.categories],
         created_at=listing.created_at,
-        updated_at=listing.updated_at,
         image_paths=presigned_urls,
         distance_from_user=distance,
     )
@@ -545,7 +533,7 @@ async def get_listing(
 # update listing
 @router.put(
     "/{listing_id}",
-    response_model=ListingCardDetails,
+    # response_model=ListingCardDetails,
     summary="Update an existing listing",
     description="Updates listing fields and category relationships. You must provide valid address/category IDs.",
 )
@@ -554,7 +542,7 @@ async def update_listing(
     listing_id: int,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
-    updated_listing_data: ListingUpdate,
+    updated_listing_data: ListingCreate,
     listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     current_user = await user_service.get_current_user(
@@ -582,9 +570,6 @@ async def update_listing(
             detail=f"Listing with ID {listing_id} not found",
         )
 
-    # TEMP NEEDS TO BE HERE AS updated_at will be marked as expired and lazy loaded otherwise
-    temp = listing.updated_at
-
     # check that user is logged in and is the seller of the listing
     if current_user.id != listing.seller_id:
         raise HTTPException(
@@ -593,48 +578,55 @@ async def update_listing(
         )
 
     # change address if address is provided
-    if updated_listing_data.address:
+    if updated_listing_data.address.address_type == AddressType.OTHER:
         # create new address
-        address_data = updated_listing_data.address.model_dump(exclude_none=True)
-        address = Address.model_validate(address_data)
-        address.user_id = current_user.id
+        address_data = updated_listing_data.address.model_dump(
+            exclude_none=True, exclude=["address_type"]
+        )
+        address_data["user_id"] = current_user.id
 
-        # add address to DB session
-        session.add(address)
-        await session.commit()
-        await session.refresh(address)
+        print("address data: ", address_data)
+        addr = listing.address
+        if listing.address.is_primary:
+            listing.address = Address.model_validate(address_data)
+        else:
+            for key, value in address_data.items():
+                setattr(addr, key, value)
+    elif (updated_listing_data.address.address_type == AddressType.PROFILE) and (
+        not listing.address.is_primary
+    ):
+        primary_address = await session.execute(
+            select(Address).where(
+                Address.user_id == current_user.id, Address.is_primary == True
+            )
+        )
+        primary_address = primary_address.scalar_one_or_none()
+        listing.address = primary_address
 
-        listing.address = address
-
-    # check that categories exist
-    if updated_listing_data.category_ids is not None:
-        category_objs = []
-        for category_id in updated_listing_data.category_ids:
-            category = await session.get(Category, category_id)
-            if not category:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Category with ID {category_id} not found.",
-                )
-            category_objs.append(category)
-
-        listing.categories = category_objs
+    # update category IDs
+    stmt = select(Category).where(Category.id.in_(updated_listing_data.category_ids))
+    categories_result = await session.execute(stmt)
+    new_categories = categories_result.scalars().all()
+    listing.categories = new_categories
 
     # update listing instance
     update_data = updated_listing_data.model_dump(
-        exclude_unset=True, exclude={"category_ids"}
+        exclude_unset=True, exclude={"category_ids", "address", "image_paths"}
     )
 
+    # FIXME: image paths
     for key, value in update_data.items():
         setattr(listing, key, value)
 
-    # if updated_listing_data.image_paths and len(updated_listing_data.image_paths) > 0:
-    #     # TODO: update image paths:
-    #     listing.images = updated_listing_data.image_paths
+    # remove old images
+    await listing_service.remove_listing_images(listing.images, listing.id)
+    # add new images
+    listing.images = [
+        ListingImage(path=image_path) for image_path in updated_listing_data.image_paths
+    ]
 
     seller_rating = await user_service.get_seller_rating(listing.seller_id)
     presigned_urls = listing_service.get_presigned_urls(listing.images)
-
     response = ListingCardDetails(
         id=listing.id,
         title=listing.title,
@@ -650,9 +642,8 @@ async def update_listing(
             rating=seller_rating,
         ),
         address=listing.address,
-        categories=listing.categories,
+        category_ids=[category.id for category in listing.categories],
         created_at=listing.created_at,
-        updated_at=temp,
         image_paths=presigned_urls,
     )
 

@@ -1,16 +1,18 @@
 import math
 from datetime import timedelta
 from typing import List, Literal, Optional
+from urllib.parse import unquote
 
 from fastapi import Depends, HTTPException, Request, status
 from firebase_admin import storage
 from pydantic_extra_types.coordinate import Latitude, Longitude
-from sqlalchemy import func
+from sqlalchemy import delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 
 from app.api.dependencies import get_async_session
+from app.api.middleware import firebase_app
 from app.models.address_model import Address
 from app.models.listing_image import ListingImage
 from app.models.listing_model import Listing
@@ -28,6 +30,20 @@ def generate_signed_url(image_path: str) -> str:
         version="v4", expiration=timedelta(minutes=60), method="GET"
     )
     return signed_url
+
+
+def delete_image(image_path: str) -> None:
+    """
+    Delete a single image from Firebase Storage.
+    Raises google.cloud.exceptions.NotFound if the blob doesn't exist.
+    """
+    print("removing: ", image_path)
+    bucket = storage.bucket()  # alebo bez argumentu, ak je default správny
+
+    # bucket = storage.bucket()
+    blob = bucket.blob(image_path)  # ak by path prišla s %2F
+    print("blob: ", blob)
+    blob.delete()
 
 
 class ListingService:
@@ -108,6 +124,13 @@ class ListingService:
     def get_presigned_urls(self, images: list[ListingImage]) -> list[str]:
         # TODO: implement error handling
         return [generate_signed_url(image.path) for image in images]
+
+    async def remove_listing_images(self, images: list[ListingImage], listing_id: int):
+        for image in images:
+            delete_image(image.path)
+
+        stmt = delete(ListingImage).where(ListingImage.listing_id == listing_id)
+        await self.session.execute(stmt)
 
     def get_listing_distance_subquery(self, user_lat: float, user_lng: float):
         """

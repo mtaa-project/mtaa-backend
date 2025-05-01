@@ -11,7 +11,12 @@ from app.models.address_model import Address
 from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
-from app.schemas.address_schema import AddressBase, NewAddress, ProfileAddressRef
+from app.schemas.address_schema import (
+    AddressBase,
+    AddressGet,
+    NewAddress,
+    ProfileAddressRef,
+)
 from app.schemas.transaction_schema import ListingTransactionBase
 
 
@@ -33,26 +38,8 @@ class SellerInfoExpanded(SellerInfoCard):
 # Basic schema for listing data
 class ListingBase(SQLModel, ListingTransactionBase):
     model_config = ConfigDict(extra="forbid")
-    listing_status: ListingStatus
+    listing_status: ListingStatus = Field(default=ListingStatus.ACTIVE)
     offer_type: OfferType
-
-
-# GET  /listings/my-listings
-# 200 OK
-# [
-#   {
-#     "id": 11,
-#     "title": "Mazda mx5 nb 2003 1.6",
-#     "price": 4567,
-#     "thumbnailUrl": "https://…",      // menšie obrázky
-#     "location": {
-#       "city": "Bratislava",
-#       "country": "Slovensko"
-#     },
-#     "status": "selling"               // tag „Selling“ atď.
-#   },
-#   …
-# ]
 
 
 # Schema for displaying users own listing data in Profile
@@ -78,11 +65,9 @@ class ListingCard(ListingBase):
     # images: List[ListingImage]
 
     # extra information for listing cards that can be used for filtering and sorting
-    address: Address
-    categories: list["Category"]  # list of category ids
+    address: AddressGet
+    category_ids: list[int]  # list of category ids
     created_at: datetime
-    updated_at: datetime | None
-
     description: Optional[str] = Field(default=None, exclude=True)
 
 
@@ -108,15 +93,15 @@ class ListingCreate(ListingBase):
 
 
 # schema for listing update
-class ListingUpdate(SQLModel):
-    model_config = ConfigDict(extra="forbid")
-    title: str | None = None
-    description: str | None = None
-    price: Decimal | None = None
-    offer_type: OfferType | None = None
-    address: AddressBase | None = None  # address info for creating new address
-    category_ids: list[int] | None = None
-    # image_paths: list[str] | None
+class ListingUpdate(ListingBase):
+    # model_config = ConfigDict(extra="forbid")
+    title: str
+    description: str
+    price: Decimal
+    offer_type: OfferType
+    address: AddressUnion
+    category_ids: list[int]
+    image_paths: list[str]
 
 
 class PriceRange(BaseModel):
