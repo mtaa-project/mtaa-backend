@@ -98,7 +98,6 @@ async def get_favorite_listings(
                 address=listing.address,
                 category_ids=[category.id for category in listing.categories],
                 created_at=listing.created_at,
-                updated_at=listing.updated_at,
                 image_paths=presigned_urls,
                 distance_from_user=distance,
             )
@@ -172,7 +171,6 @@ async def add_favorite(
         address=listing.address,
         category_ids=[category.id for category in listing.categories],
         created_at=listing.created_at,
-        updated_at=listing.updated_at,
         image_paths=presigned_urls,
     )
 
@@ -250,7 +248,6 @@ async def remove_favorite(
         address=listing.address,
         category_ids=[category.id for category in listing.categories],
         created_at=listing.created_at,
-        updated_at=listing.updated_at,
         image_paths=presigned_urls,
     )
 

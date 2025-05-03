@@ -431,7 +431,6 @@ async def get_listings_by_params(
                 address=listing.address,
                 category_ids=[category.id for category in listing.categories],
                 created_at=listing.created_at,
-                updated_at=listing.updated_at,
                 image_paths=presigned_urls,
                 distance_from_user=distance,
             )
@@ -756,7 +755,6 @@ async def buy_listing(
 
     # set listing status to sold
     listing.listing_status = ListingStatus.SOLD
-    temp = listing.updated_at
 
     # add transaction to DB session
     transaction = SaleListing(
@@ -786,7 +784,6 @@ async def buy_listing(
         address=listing.address,
         category_ids=[category.id for category in listing.categories],
         created_at=listing.created_at,
-        updated_at=temp,
         image_paths=listing_service.get_presigned_urls(listing.images),
     )
 
@@ -852,7 +849,6 @@ async def rent_listing(
 
     # set listing status to rented
     listing.listing_status = ListingStatus.RENTED
-    temp = listing.updated_at
 
     # add transaction to DB session
     transaction = RentListing(
@@ -885,7 +881,6 @@ async def rent_listing(
         address=listing.address,
         category_ids=[category.id for category in listing.categories],
         created_at=listing.created_at,
-        updated_at=temp,
         image_paths=listing_service.get_presigned_urls(listing.images),
     )
 
@@ -945,7 +940,6 @@ async def hide_listing(
 
     # set listing status to hidden
     listing.listing_status = ListingStatus.HIDDEN
-    temp = listing.updated_at
 
     response = ListingCardDetails(
         id=listing.id,
@@ -964,7 +958,6 @@ async def hide_listing(
         address=listing.address,
         category_ids=[category.id for category in listing.categories],
         created_at=listing.created_at,
-        updated_at=temp,
         image_paths=listing_service.get_presigned_urls(listing.images),
     )
 
@@ -1024,7 +1017,6 @@ async def show_listing(
 
     # set listing status to hidden
     listing.listing_status = ListingStatus.ACTIVE
-    temp = listing.updated_at
 
     response = ListingCardDetails(
         id=listing.id,
@@ -1043,7 +1035,6 @@ async def show_listing(
         address=listing.address,
         category_ids=[category.id for category in listing.categories],
         created_at=listing.created_at,
-        updated_at=temp,
         image_paths=listing_service.get_presigned_urls(listing.images),
     )
 
