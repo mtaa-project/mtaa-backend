@@ -317,7 +317,9 @@ async def get_listings_by_params(
             selectinload(Listing.address),
             selectinload(Listing.images),
         )
-        .where(Listing.listing_status == ListingStatus.ACTIVE)  # only active listings
+        .where(
+            Listing.listing_status.in_([ListingStatus.ACTIVE, ListingStatus.RENTED]),
+        )  # only active listings
     )
 
     # Filtering:
