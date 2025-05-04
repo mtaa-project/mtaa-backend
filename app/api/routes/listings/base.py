@@ -272,11 +272,11 @@ async def get_listings_by_params(
                 )
 
     # LISTING STATUS FROM FRONTEND CANNOT BE REMOVED
-    if params.listing_status == ListingStatus.REMOVED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Listing status cannot be REMOVED when filtering listings.",
-        )
+    # if params.listing_status == ListingStatus.REMOVED:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Listing status cannot be REMOVED when filtering listings.",
+    #     )
 
     # check that params sort_by is valid
     if params.sort_by not in [
@@ -327,16 +327,42 @@ async def get_listings_by_params(
         )
     if params.offer_type is not None:
         query = query.where(Listing.offer_type == params.offer_type)
-    if params.listing_status is not None:
-        query = query.where(Listing.listing_status == params.listing_status)
-    if params.min_price is not None:
-        query = query.where(Listing.price >= params.min_price)
-    if params.max_price is not None:
-        query = query.where(Listing.price <= params.max_price)
+    # if params.listing_status is not None:
+    #     query = query.where(Listing.listing_status == params.listing_status)
+    # if params.min_price is not None:
+    #     query = query.where(Listing.price >= params.min_price)
+    # if params.max_price is not None:
+    #     query = query.where(Listing.price <= params.max_price)
+    if params.offer_type == OfferType.RENT:
+        if params.price_range_rent is not None:
+            if params.price_range_rent.min_price is not None:
+                query = query.where(Listing.price >= params.price_range_rent.min_price)
+            if params.price_range_rent.max_price is not None:
+                query = query.where(Listing.price <= params.price_range_rent.max_price)
+    elif params.offer_type == OfferType.BUY:
+        if params.price_range_sale is not None:
+            if params.price_range_sale.min_price is not None:
+                query = query.where(Listing.price >= params.price_range_sale.min_price)
+            if params.price_range_sale.max_price is not None:
+                query = query.where(Listing.price <= params.price_range_sale.max_price)
+    else:
+        if params.price_range_rent is not None:
+            if params.price_range_rent.min_price is not None:
+                query = query.where(Listing.price >= params.price_range_rent.min_price)
+            if params.price_range_rent.max_price is not None:
+                query = query.where(Listing.price <= params.price_range_rent.max_price)
+        if params.price_range_sale is not None:
+            if params.price_range_sale.min_price is not None:
+                query = query.where(Listing.price >= params.price_range_sale.min_price)
+            if params.price_range_sale.max_price is not None:
+                query = query.where(Listing.price <= params.price_range_sale.max_price)
+
     if params.search is not None:
         query = query.where(
-            (Listing.title.ilike(f"%{params.search}%"))
-            | (Listing.description.ilike(f"%{params.search}%"))
+            (
+                Listing.title.ilike(f"%{params.search}%")
+                # | (Listing.description.ilike(f"%{params.search}%"))
+            )
         )
     if params.min_rating is not None:
         query = query.where(rating_val >= params.min_rating)
