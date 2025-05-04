@@ -53,7 +53,7 @@ async def get_favorite_listings(
         )
         .where(
             Listing.favorite_by.any(User.id == current_user.id),
-            Listing.listing_status != ListingStatus.REMOVED,
+            Listing.listing_status.in_([ListingStatus.ACTIVE, ListingStatus.RENTED]),
         )
     )
 
