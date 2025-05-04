@@ -499,7 +499,6 @@ async def get_listing(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Listing with ID {listing_id} has been removed.",
         )
-    seller_rating = await user_service.get_seller_rating(listing.seller_id)
 
     # generate presigned urls for listing images
     presigned_urls = listing_service.get_presigned_urls(listing.images)
@@ -516,7 +515,7 @@ async def get_listing(
             id=listing.seller.id,
             firstname=listing.seller.firstname,
             lastname=listing.seller.lastname,
-            rating=seller_rating,
+            rating=await user_service.get_seller_rating(listing.seller_id),
         ),
         address=listing.address,
         category_ids=[category.id for category in listing.categories],
@@ -624,7 +623,6 @@ async def update_listing(
         ListingImage(path=image_path) for image_path in updated_listing_data.image_paths
     ]
 
-    seller_rating = await user_service.get_seller_rating(listing.seller_id)
     presigned_urls = listing_service.get_presigned_urls(listing.images)
     response = ListingCardDetails(
         id=listing.id,
@@ -638,7 +636,7 @@ async def update_listing(
             id=listing.seller.id,
             firstname=listing.seller.firstname,
             lastname=listing.seller.lastname,
-            rating=seller_rating,
+            rating=await user_service.get_seller_rating(listing.seller_id),
         ),
         address=listing.address,
         category_ids=[category.id for category in listing.categories],
