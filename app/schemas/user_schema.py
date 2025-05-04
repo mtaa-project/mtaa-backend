@@ -17,6 +17,7 @@ class UserGet(SQLModel):
     firstname: str = Field(min_length=1, max_length=255)
     lastname: str = Field(min_length=1, max_length=255)
     phone_number: str | None = Field(default=None, max_length=255)
+    email: EmailStr | None = Field(unique=True, max_length=255)
 
 
 class UserUpdate(UserGet):

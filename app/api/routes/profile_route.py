@@ -10,12 +10,10 @@ from sqlmodel import select
 
 from app.api.dependencies import get_async_session
 from app.models.address_model import Address
-from app.models.user_model import User
 from app.models.user_review_model import UserReview
 from app.schemas.review_schema import ReviewResponse
 from app.schemas.user_schema import (
     ProfileUser,
-    UserGet,
     UserProfileUpdateRequest,
     UserProfileUpdateResponse,
 )
@@ -52,6 +50,7 @@ async def get_profile(
         firstname=current_user.firstname,
         lastname=current_user.lastname,
         phone_number=current_user.phone_number,
+        email=current_user.email,
         rating=user_rating,
         amount_rent_listing=len(rented_listings),
         amount_sold_listing=len(sold_listings),
@@ -97,7 +96,7 @@ async def update_profile(
 
 
 @router.get("/profile/{id}", response_model=ProfileUser)
-async def get_profile(
+async def get_user_profile(
     *,
     id: int,
     session: AsyncSession = Depends(get_async_session),
@@ -131,6 +130,7 @@ async def get_profile(
         firstname=user.firstname,
         lastname=user.lastname,
         phone_number=user.phone_number,
+        email=user.email,
         rating=user_rating,
         amount_rent_listing=len(user.rented_listings),
         amount_sold_listing=len(sold_listings),
