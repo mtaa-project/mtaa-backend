@@ -110,7 +110,9 @@ class PriceRange(BaseModel):
 
 
 class AlertQuery(BaseModel):
-    offer_type: OfferType  # filter by offer type: RENT, SELL (BOTH is NOT supported)
+    offer_type: OfferType = (
+        OfferType.BOTH
+    )  # filter by offer type: RENT, SELL (BOTH is NOT supported)
     category_ids: List[int] | None = None
     # listing_status: ListingStatus = ListingStatus.ACTIVE
     # min_price: int | None = Field(default=None, ge=0)
