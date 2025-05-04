@@ -53,7 +53,7 @@ async def seed_users_listings():
 
                 listing = Listing(
                     title=fake.sentence(nb_words=6),
-                    description=fake.paragraph(nb_sentences=3),
+                    description=fake.paragraph(nb_sentences=10),
                     price=Decimal(f"{random.uniform(10, 1000):.2f}"),
                     offer_type=offer_type,
                     seller_id=user.id,
