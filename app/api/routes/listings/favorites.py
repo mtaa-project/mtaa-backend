@@ -79,6 +79,7 @@ async def get_favorite_listings(
 
     output_listings: List[ListingCardDetails] = []
     for listing, seller_rating, distance in listings:
+        seller_rating = round(seller_rating, 2) if seller_rating else None
         presigned_urls = listing_service.get_presigned_urls(listing.images)
         output_listings.append(
             ListingCardDetails(
