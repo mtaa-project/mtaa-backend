@@ -8,8 +8,8 @@ from app.db.database import async_session
 from app.models.listing_model import Listing
 from app.models.user_model import User
 
-PER_USER_MIN_LISTING_COUNT = 0
-PER_USER_MAX_LISTING_COUNT = 15
+PER_USER_MIN_LISTING_COUNT = 15
+PER_USER_MAX_LISTING_COUNT = 20
 
 
 async def seed_users_favorite_listings_with_relationship():
