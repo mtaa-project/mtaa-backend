@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic_extra_types.coordinate import Latitude, Longitude
 from pydantic_extra_types.country import CountryAlpha2
 from sqlmodel import Field, SQLModel
@@ -141,9 +141,31 @@ class AlertQueryCreate(AlertQuery):
 class ListingQueryParameters(AlertQuery):
     limit: int = 10
     offset: int = 0
+    sale_min: int | None = Field(None, alias="price_range_sale.min_price", ge=0)
+    sale_max: int | None = Field(None, alias="price_range_sale.max_price", ge=0)
+    rent_min: int | None = Field(None, alias="price_range_rent.min_price", ge=0)
+    rent_max: int | None = Field(None, alias="price_range_rent.max_price", ge=0)
+
     user_latitude: Latitude | None = None
     user_longitude: Longitude | None = None
     max_distance: float | None = None  # same as radius, in km
+
+    @model_validator(mode="after")
+    def build_price_range(self):
+        print("#" * 100)
+        print("Building price range")
+        print("#" * 100)
+        if self.sale_min is not None or self.sale_max is not None:
+            self.price_range_sale = PriceRange(
+                min_price=self.sale_min, max_price=self.sale_max
+            )
+        if self.rent_min is not None or self.rent_max is not None:
+            self.price_range_rent = PriceRange(
+                min_price=self.rent_min, max_price=self.rent_max
+            )
+        print(self.sale_min, self.sale_max)
+        print(self.rent_min, self.rent_max)
+        return self
 
 
 class ProfileStatistics(SQLModel):
