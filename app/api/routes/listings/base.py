@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, List, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic_extra_types.coordinate import Latitude, Longitude
 from sqlalchemy import null
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -244,6 +244,17 @@ async def get_my_listings(
 
 # TESTED for using limit, offset, offer_types, listing_status
 # get listings with specific categories, price, status, offer type, and (address)
+def parse_listing_query(request: Request) -> ListingQueryParameters:
+    # FastAPI’s MultiDict → plain dict
+    print("#" * 40)
+    print("Raw params:", request.query_params)
+    temp = ListingQueryParameters.model_validate(dict(request.query_params))
+    print("Validated params:", temp)
+    print("#" * 40)
+    # return ListingQueryParameters.model_validate(dict(request.query_params))
+    return temp
+
+
 @router.get(
     "/",
     response_model=List[ListingCardDetails],
@@ -254,12 +265,17 @@ async def get_listings_by_params(
     *,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
-    params: Annotated[ListingQueryParameters, Depends()],
+    # params: Annotated[ListingQueryParameters, Depends()],
+    params: ListingQueryParameters = Depends(parse_listing_query),
     listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
     )
+
+    print("#" * 40)
+    print(params.model_dump(exclude_none=True))
+    print("#" * 40)
 
     # check that categories exists
     if params.category_ids is not None:
