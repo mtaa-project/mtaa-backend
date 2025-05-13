@@ -1,7 +1,5 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlmodel import desc, select
 
@@ -11,7 +9,6 @@ from app.models.firebase_cloud_token_model import FirebaseCloudToken
 from app.models.user_search_alert_model import UserSearchAlert
 from app.schemas.listing_schema import AlertQuery, AlertQueryCreate
 from app.schemas.user_search_alerts import (
-    Categories,
     DeviceToken,
     UserSearchAlertDetail,
     UserSearchAlertGet,
@@ -57,22 +54,23 @@ async def get_my_alerts(
 
 
 @router.get(
-    "/my-alerts/{id}",
+    "/my-alerts/{alert_id}",
     response_model=UserSearchAlertDetail,
     summary="Get current user's alert by ID",
     description="Fetch alert created by the current user.",
 )
 async def get_my_alert(
     *,
-    id: int,
+    alert_id: int,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
 ):
     current_user = await user_service.get_current_user()
+
     alert_response = await session.execute(
         select(UserSearchAlert).where(
             UserSearchAlert.user_id == current_user.id,
-            UserSearchAlert.id == id,
+            UserSearchAlert.id == alert_id,
         )
     )
 
@@ -80,21 +78,11 @@ async def get_my_alert(
     alert_response = alert_response.scalar_one_or_none()
     if alert_response is None:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f'Alert not "{id}" found.'
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Alert {alert_id} not found."
         )
 
     # select selected categories
     selectedCategoryIds = alert_response.product_filters.get("category_ids", [])
-    if len(selectedCategoryIds) > 0:
-        categories = (
-            await session.scalars(
-                select(Category).where(Category.id.in_(selectedCategoryIds))
-            )
-        ).all()
-    else:
-        categories = []
-
-    # select not selected categories
 
     return UserSearchAlertDetail(
         id=alert_response.id,
@@ -102,8 +90,10 @@ async def get_my_alert(
         search=alert_response.product_filters.get("search", ""),
         categoryIds=selectedCategoryIds,
         offer_type=alert_response.product_filters.get("offer_type"),
-        price_range_rent=alert_response.product_filters.get("price_range_rent"),
-        price_range_sale=alert_response.product_filters.get("price_range_sale"),
+        sale_min=alert_response.product_filters.get("sale_min"),
+        sale_max=alert_response.product_filters.get("sale_max"),
+        rent_min=alert_response.product_filters.get("rent_min"),
+        rent_max=alert_response.product_filters.get("rent_max"),
     )
 
 
@@ -122,7 +112,14 @@ async def update_alert(
 ):
     current_user = await user_service.get_current_user()
 
-    alert = await session.get(UserSearchAlert, alert_id)
+    alert = await session.execute(
+        select(UserSearchAlert).where(
+            UserSearchAlert.user_id == current_user.id,
+            UserSearchAlert.id == alert_id,
+        )
+    )
+    # verify alert existence
+    alert = alert.scalar_one_or_none()
     if not alert or alert.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -167,8 +164,10 @@ async def update_alert(
         search=alert.product_filters["search"],
         categoryIds=selected_ids,
         offer_type=alert.product_filters.get("offer_type"),
-        price_range_rent=alert.product_filters.get("price_range_rent"),
-        price_range_sale=alert.product_filters.get("price_range_sale"),
+        sale_min=alert.product_filters.get("sale_min"),
+        sale_max=alert.product_filters.get("sale_max"),
+        rent_min=alert.product_filters.get("rent_min"),
+        rent_max=alert.product_filters.get("rent_max"),
     )
 
 
@@ -244,8 +243,11 @@ async def create_alert(
 
     # create the alert and add it to the session (type JSONB)
     product_filters = new_alert_data.model_dump(
-        exclude_unset=True, exclude="device_push_token"
+        exclude_unset=True, exclude=["device_push_token", "time_from"]
     )
+    # product_filters = jsonable_encoder(
+    #     new_alert_data.model_dump(exclude_unset=True, exclude="device_push_token")
+    # )
 
     alert = UserSearchAlert(
         user_id=current_user.id,

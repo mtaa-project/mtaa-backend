@@ -2,21 +2,14 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict
 from pydantic_extra_types.coordinate import Latitude, Longitude
 from pydantic_extra_types.country import CountryAlpha2
 from sqlmodel import Field, SQLModel
 
-from app.models.address_model import Address
-from app.models.category_model import Category
 from app.models.enums.listing_status import ListingStatus
 from app.models.enums.offer_type import OfferType
-from app.schemas.address_schema import (
-    AddressBase,
-    AddressGet,
-    NewAddress,
-    ProfileAddressRef,
-)
+from app.schemas.address_schema import AddressGet, NewAddress, ProfileAddressRef
 from app.schemas.transaction_schema import ListingTransactionBase
 
 
@@ -104,24 +97,18 @@ class ListingUpdate(ListingBase):
     image_paths: list[str]
 
 
-class PriceRange(BaseModel):
-    min_price: int | None = Field(default=None, ge=0)
-    max_price: int | None = Field(default=None, ge=0)
-
-
 class AlertQuery(BaseModel):
     offer_type: OfferType = (
         OfferType.BOTH
     )  # filter by offer type: RENT, SELL (BOTH is NOT supported)
     category_ids: List[int] | None = None
-    # listing_status: ListingStatus = ListingStatus.ACTIVE
-    # min_price: int | None = Field(default=None, ge=0)
-    # max_price: int | None = Field(default=None, ge=0)
-    price_range_rent: PriceRange | None = None
-    price_range_sale: PriceRange | None = None
+    sale_min: int | None = Field(None, ge=0)
+    sale_max: int | None = Field(None, ge=0)
+    rent_min: int | None = Field(None, ge=0)
+    rent_max: int | None = Field(None, ge=0)
 
     min_rating: float | None = Field(default=None, ge=0)
-    time_from: datetime | None = Field(ge=0, le=5, default=None)  # filter by timestamp)
+    time_from: datetime | None = Field(default=None)  # filter by timestamp)
 
     # sort by options
     sort_by: str = "created_at"  # updated_at, price, rating, location
@@ -135,37 +122,19 @@ class AlertQuery(BaseModel):
 
 
 class AlertQueryCreate(AlertQuery):
+    # time_from: None = Field(
+    #     default=None, exclude=True
+    # )  # Forbid setting this field when creating an alert
     device_push_token: str
 
 
 class ListingQueryParameters(AlertQuery):
     limit: int = 10
     offset: int = 0
-    sale_min: int | None = Field(None, alias="price_range_sale.min_price", ge=0)
-    sale_max: int | None = Field(None, alias="price_range_sale.max_price", ge=0)
-    rent_min: int | None = Field(None, alias="price_range_rent.min_price", ge=0)
-    rent_max: int | None = Field(None, alias="price_range_rent.max_price", ge=0)
 
     user_latitude: Latitude | None = None
     user_longitude: Longitude | None = None
     max_distance: float | None = None  # same as radius, in km
-
-    @model_validator(mode="after")
-    def build_price_range(self):
-        print("#" * 100)
-        print("Building price range")
-        print("#" * 100)
-        if self.sale_min is not None or self.sale_max is not None:
-            self.price_range_sale = PriceRange(
-                min_price=self.sale_min, max_price=self.sale_max
-            )
-        if self.rent_min is not None or self.rent_max is not None:
-            self.price_range_rent = PriceRange(
-                min_price=self.rent_min, max_price=self.rent_max
-            )
-        print(self.sale_min, self.sale_max)
-        print(self.rent_min, self.rent_max)
-        return self
 
 
 class ProfileStatistics(SQLModel):

@@ -18,7 +18,7 @@ from app.services.user.user_service import UserService
 async def notify_user_search_alerts():
     async with async_session() as session:
         now = datetime.now(UTC)
-        time_limits = now - timedelta(minutes=1)
+        time_limits = now - timedelta(minutes=1)  # 1 minute
         # Fetch user search alerts that haven't been notified in the last 2 hours
         result = await session.execute(
             select(UserSearchAlert)
@@ -40,9 +40,9 @@ async def notify_user_search_alerts():
                 continue
             # Build the query to find new listings that match the search alert
             rating_subquery = UserService.get_seller_rating_subquery()
-            rating_val = func.coalesce(rating_subquery.c.avg_rating, 0).label(
-                "seller_rating"
-            )
+            rating_val = func.coalesce(
+                func.round(rating_subquery.c.avg_rating, 2), 0
+            ).label("seller_rating")
 
             query = (
                 select(Listing, rating_val)
@@ -66,7 +66,7 @@ async def notify_user_search_alerts():
 
             # Iterate over each key in product_filters and build a condition based on the key name
             for key, value in s_alert.product_filters.items():
-                if key == "category_ids":
+                if key == "category_ids" and len(value) > 0:
                     # Filter listings that have at least one category with the given IDs.
                     if isinstance(value, list) and value:
                         query = query.where(
@@ -83,10 +83,11 @@ async def notify_user_search_alerts():
                 elif key == "search":
                     # Assuming Listing has title and description fields
                     query = query.where(
-                        or_(
-                            Listing.title.ilike(f"%{value}%"),
-                            Listing.description.ilike(f"%{value}%"),
-                        )
+                        Listing.title.ilike(f"%{value}%")
+                        # or_(
+                        #     Listing.title.ilike(f"%{value}%"),
+                        #     # Listing.description.ilike(f"%{value}%"),
+                        # )
                     )
 
                 elif key == "min_rating":
@@ -128,14 +129,12 @@ async def notify_user_search_alerts():
             if listings:
                 # Generate a URL for the listings
                 base_url = "mtaa-frotnend://home"
-                # query_string = urllib.parse.urlencode(
-                #     s_alert.product_filters, doseq=True
-                # )
+                query_string = urllib.parse.urlencode(
+                    s_alert.product_filters, doseq=True
+                )
                 # Add time filters to the query string
-                # query_string += f"&time_from={s_alert.last_notified_at.isoformat()}"
-                # deep_link_url = f"{base_url}/listings?{query_string}"
-                deep_link_url = base_url
-                # deep_link_url = base_url + "/home"
+                query_string += f"&time_from={s_alert.last_notified_at.isoformat()}"
+                deep_link_url = f"{base_url}/listings?{query_string}"
                 print(f"URL: {deep_link_url}")
 
                 token_strings = [

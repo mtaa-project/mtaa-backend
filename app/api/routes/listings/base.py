@@ -24,10 +24,9 @@ from app.schemas.listing_schema import (
     ListingCardProfile,
     ListingCreate,
     ListingQueryParameters,
-    ListingUpdate,
     SellerInfoCard,
 )
-from app.services.listing.listing_service import ListingService, delete_image
+from app.services.listing.listing_service import ListingService
 from app.services.user.user_service import UserService
 
 router = APIRouter()
@@ -243,18 +242,6 @@ async def get_my_listings(
 
 
 # TESTED for using limit, offset, offer_types, listing_status
-# get listings with specific categories, price, status, offer type, and (address)
-def parse_listing_query(request: Request) -> ListingQueryParameters:
-    # FastAPI’s MultiDict → plain dict
-    print("#" * 40)
-    print("Raw params:", request.query_params)
-    temp = ListingQueryParameters.model_validate(dict(request.query_params))
-    print("Validated params:", temp)
-    print("#" * 40)
-    # return ListingQueryParameters.model_validate(dict(request.query_params))
-    return temp
-
-
 @router.get(
     "/",
     response_model=List[ListingCardDetails],
@@ -265,8 +252,7 @@ async def get_listings_by_params(
     *,
     session: AsyncSession = Depends(get_async_session),
     user_service: UserService = Depends(UserService.get_dependency),
-    # params: Annotated[ListingQueryParameters, Depends()],
-    params: ListingQueryParameters = Depends(parse_listing_query),
+    params: Annotated[ListingQueryParameters, Depends()],
     listing_service: ListingService = Depends(ListingService.get_dependency),
 ):
     current_user = await user_service.get_current_user(
@@ -335,7 +321,7 @@ async def get_listings_by_params(
         )
         .where(
             Listing.listing_status.in_([ListingStatus.ACTIVE, ListingStatus.RENTED]),
-        )  # only active listings
+        )  # only available and possibly available listings
     )
 
     # Filtering:
@@ -345,35 +331,10 @@ async def get_listings_by_params(
         )
     if params.offer_type is not None:
         query = query.where(Listing.offer_type == params.offer_type)
-    # if params.listing_status is not None:
-    #     query = query.where(Listing.listing_status == params.listing_status)
-    # if params.min_price is not None:
-    #     query = query.where(Listing.price >= params.min_price)
-    # if params.max_price is not None:
-    #     query = query.where(Listing.price <= params.max_price)
-    if params.offer_type == OfferType.RENT:
-        if params.price_range_rent is not None:
-            if params.price_range_rent.min_price is not None:
-                query = query.where(Listing.price >= params.price_range_rent.min_price)
-            if params.price_range_rent.max_price is not None:
-                query = query.where(Listing.price <= params.price_range_rent.max_price)
-    elif params.offer_type == OfferType.BUY:
-        if params.price_range_sale is not None:
-            if params.price_range_sale.min_price is not None:
-                query = query.where(Listing.price >= params.price_range_sale.min_price)
-            if params.price_range_sale.max_price is not None:
-                query = query.where(Listing.price <= params.price_range_sale.max_price)
-    else:
-        if params.price_range_rent is not None:
-            if params.price_range_rent.min_price is not None:
-                query = query.where(Listing.price >= params.price_range_rent.min_price)
-            if params.price_range_rent.max_price is not None:
-                query = query.where(Listing.price <= params.price_range_rent.max_price)
-        if params.price_range_sale is not None:
-            if params.price_range_sale.min_price is not None:
-                query = query.where(Listing.price >= params.price_range_sale.min_price)
-            if params.price_range_sale.max_price is not None:
-                query = query.where(Listing.price <= params.price_range_sale.max_price)
+    if params.sale_min is not None:
+        query = query.where(Listing.price >= params.sale_min)
+    if params.sale_max is not None and params.sale_max > 0:
+        query = query.where(Listing.price <= params.sale_max)
 
     if params.search is not None:
         query = query.where(
@@ -387,7 +348,9 @@ async def get_listings_by_params(
     if params.country is not None:
         query = query.where(Listing.address.has(Address.country == params.country))
     if params.city is not None:
-        query = query.where(Listing.address.has(Address.city == params.city))
+        query = query.where(
+            Listing.address.has(Address.city.ilike(f"%{params.city}%"))
+        )  # partial match
     if params.street is not None:
         query = query.where(Listing.address.has(Address.street == params.street))
     if params.time_from is not None:
