@@ -1,10 +1,11 @@
 # import asyncio
 
+import socketio
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Depends, FastAPI
 from fastapi.security import HTTPBearer
 
-from app.api.middleware import authenticate_request, init_firebase
+from app.api.middleware import authenticate_request, firebase_app, init_firebase
 from app.api.routes import (
     auth_route,
     category_router,
@@ -16,6 +17,34 @@ from app.api.routes.listings import user_alerts
 from app.schedulers.run_user_searches import notify_user_search_alerts
 
 security = HTTPBearer()
+sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
+
+
+@sio.event
+async def connect(sid, environ, auth):
+    token = auth.get("token")
+    if not token:
+        return False  # odmietne pripojenie
+    try:
+        user = auth.verify_id_token(token, firebase_app)
+    except:
+        return False
+
+    sio.enter_room(sid, user["uid"])
+    # všade emitni, že user je online
+    await sio.emit("user_status", {"user_id": user["uid"], "is_online": True})
+    return True
+
+
+@sio.event
+async def disconnect(sid):
+    # zistiš, v ktorých miestnostiach bol
+    rooms = sio.rooms(sid)
+    for room in rooms:
+        # vyhodenie z miestnosti
+        sio.leave_room(sid, room)
+        # oznámenie o offline
+        await sio.emit("user_status", {"user_id": room, "is_online": False})
 
 
 async def lifespan(app: FastAPI):

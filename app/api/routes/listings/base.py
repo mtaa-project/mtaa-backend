@@ -899,7 +899,7 @@ async def rent_listing(
 
 # hide listing
 @router.put(
-    "{listing_id}/hide",
+    "/{listing_id}/hide",
     status_code=status.HTTP_200_OK,
     summary="Hide a listing",
     description="Marks the listing as HIDDEN. It will no longer be visible to users.",
@@ -915,7 +915,6 @@ async def hide_listing(
     current_user = await user_service.get_current_user(
         dependencies=["favorite_listings"]
     )
-
     # check that listing exists
     listing = await session.execute(
         select(Listing)
@@ -976,7 +975,7 @@ async def hide_listing(
 
 # show listing
 @router.put(
-    "{listing_id}/show",
+    "/{listing_id}/show",
     status_code=status.HTTP_200_OK,
     summary="Shows a hidden listing",
     description="Marks the listing as ACTIVE. It will again be visible to users.",
